@@ -1,0 +1,2952 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>门店路线与品牌指引 · 云端托管平台</title>
+
+  <!-- 引入高质感衬线与无衬线字体：Noto Serif SC + Plus Jakarta Sans + Noto Sans SC -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;600;700&family=Noto+Serif+SC:wght@500;600;700&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- 加载 Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- 加载官方 Supabase JS SDK v2 -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <!-- 加载轻量 QRCode 库用于生成门店直达二维码（离线时自动优雅降级为 SVG 提示） -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <!-- Tailwind 定制高级生活方式设计系统色板与字体 -->
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            serif: ['"Noto Serif SC"', 'Georgia', 'serif'],
+            sans: ['"Plus Jakarta Sans"', '"Noto Sans SC"', '-apple-system', 'BlinkMacSystemFont', 'sans-serif'],
+          },
+          colors: {
+            oat: {
+              50: '#FCFBF9',
+              100: '#F8F6F2',
+              200: '#EFECE5',
+              300: '#E5DFD5',
+            },
+            charcoal: {
+              900: '#1F1D1B',
+              700: '#45403B',
+              500: '#6E675F',
+              400: '#9A9288',
+            },
+            pine: {
+              DEFAULT: '#1F4E3D',
+              dark: '#163A2D',
+              light: '#EBF3EF',
+              mid: '#39735D',
+            },
+            amberwarm: {
+              DEFAULT: '#C67D43',
+              dark: '#A6632E',
+              light: '#FCF2E9',
+              mid: '#DC9A63',
+            }
+          },
+          boxShadow: {
+            'bento': '0 10px 32px -12px rgba(31, 29, 27, 0.06), 0 1px 3px rgba(31, 29, 27, 0.03)',
+            'bento-hover': '0 18px 42px -14px rgba(31, 29, 27, 0.10), 0 2px 6px rgba(31, 29, 27, 0.04)',
+            'glass': '0 12px 36px -10px rgba(31, 29, 27, 0.14)',
+            'drawer': '-16px 0 48px -12px rgba(31, 29, 27, 0.16)',
+          },
+          transitionTimingFunction: {
+            'apple': 'cubic-bezier(0.22, 1, 0.36, 1)',
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* 精细玻璃拟态与丝滑过渡动画 */
+    .glass-nav {
+      background: rgba(248, 246, 242, 0.78);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+    }
+    .glass-pill {
+      background: rgba(255, 255, 255, 0.82);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+    .glass-dark {
+      background: rgba(31, 29, 27, 0.56);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+    }
+
+    /* SVG 路线流光动画 */
+    @keyframes routeFlow {
+      to {
+        stroke-dashoffset: -48;
+      }
+    }
+    .route-glow-dash {
+      stroke-dasharray: 10 6;
+      animation: routeFlow 1.5s linear infinite;
+    }
+
+    /* 门店脉冲光环 */
+    @keyframes beaconPulse {
+      0% {
+        transform: scale(0.8);
+        opacity: 0.85;
+      }
+      100% {
+        transform: scale(2.3);
+        opacity: 0;
+      }
+    }
+    .beacon-ring {
+      transform-box: fill-box;
+      transform-origin: center;
+      animation: beaconPulse 2.4s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+    }
+
+    /* 云端在线呼吸灯 */
+    @keyframes breatheDot {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.35); opacity: 0.55; }
+    }
+    .dot-breathe {
+      animation: breatheDot 2.2s ease-in-out infinite;
+    }
+
+    /* 手风琴平滑展开动画 */
+    .faq-grid {
+      display: grid;
+      grid-template-rows: 0fr;
+      transition: grid-template-rows 0.32s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .faq-item[data-open="true"] .faq-grid {
+      grid-template-rows: 1fr;
+    }
+    .faq-inner {
+      overflow: hidden;
+    }
+
+    /* 抽屉滑入动效 */
+    .drawer-panel {
+      transform: translateX(100%);
+      transition: transform 0.38s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .drawer-open .drawer-panel {
+      transform: translateX(0);
+    }
+
+    /* 隐藏横向滚动条但保持丝滑滚动 */
+    .no-scrollbar::-webkit-scrollbar { display: none; }
+    .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+    /* 自定义优雅滚动条 */
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #DED7CC; border-radius: 99px; }
+    .custom-scroll::-webkit-scrollbar-thumb:hover { background: #C8BEB0; }
+  </style>
+</head>
+<body class="bg-oat-100 text-charcoal-900 font-sans antialiased selection:bg-amberwarm-light selection:text-amberwarm-dark pb-24 sm:pb-14">
+
+  <!-- =========================================================
+       顶部悬浮毛玻璃导航栏
+  ========================================================== -->
+  <header class="sticky top-0 z-40 glass-nav border-b border-oat-300/75">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+
+      <!-- 左侧：品牌 Logo + 多门店下拉切换器 -->
+      <div class="flex items-center gap-2.5 sm:gap-3 min-w-0">
+        <div class="w-9 h-9 rounded-2xl bg-pine text-oat-50 flex items-center justify-center shrink-0 shadow-sm">
+          <!-- 指南针 / 空间坐标徽标 -->
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="12" r="10"></circle>
+            <polygon points="16.24 7.76 14.12 14.12 7.76 16.24 9.88 9.88 16.24 7.76"></polygon>
+          </svg>
+        </div>
+
+        <!-- 门店下拉选择器 -->
+        <div class="relative min-w-0">
+          <button id="storeSwitcherBtn" type="button" onclick="toggleStoreMenu()" class="flex items-center gap-1.5 sm:gap-2 px-2.5 sm:px-3 py-1.5 rounded-xl hover:bg-white/80 border border-transparent hover:border-oat-300 transition-all max-w-[185px] sm:max-w-[270px] text-left">
+            <div class="min-w-0">
+              <span id="navStoreName" class="block font-serif font-semibold text-sm sm:text-[15px] text-charcoal-900 truncate leading-tight">拾光手作咖啡馆</span>
+              <span id="navStoreCount" class="block text-[10px] text-charcoal-400 leading-tight mt-0.5 truncate">2 家门店可切换</span>
+            </div>
+            <svg id="switcherChevron" class="w-4 h-4 text-charcoal-500 shrink-0 transition-transform duration-200" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+
+          <!-- 门店列表下拉面板 -->
+          <div id="storeDropdownMenu" class="hidden absolute left-0 mt-2 w-72 sm:w-80 bg-white/95 backdrop-blur-xl rounded-2xl border border-oat-300 shadow-glass p-2 z-50">
+            <div class="px-2.5 py-2 flex items-center justify-between border-b border-oat-200 mb-1">
+              <span class="text-[11px] font-semibold text-charcoal-400 tracking-wide uppercase">切换门店</span>
+              <button type="button" onclick="closeStoreMenu(); openStudioDrawer('create');" class="text-xs font-semibold text-pine hover:text-pine-dark flex items-center gap-1">
+                <svg class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                新增入驻
+              </button>
+            </div>
+            <div id="storeDropdownList" class="max-h-64 overflow-y-auto custom-scroll space-y-1">
+              <!-- 动态渲染门店列表 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 中右：云端同步状态胶囊 + 核心操作按钮 -->
+      <div class="flex items-center gap-2 shrink-0">
+        <!-- 云端状态胶囊徽章 -->
+        <button id="cloudStatusBadge" type="button" onclick="openCloudModal()" class="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-medium bg-white/90 border border-oat-300 text-charcoal-700 hover:border-amberwarm transition-all shadow-xs">
+          <span id="cloudStatusDot" class="w-2 h-2 rounded-full bg-amberwarm"></span>
+          <span id="cloudStatusText">本地演示模式 · 配置 Supabase</span>
+        </button>
+
+        <!-- 上传/编辑商家主按钮 -->
+        <button type="button" onclick="openStudioDrawer('edit')" class="inline-flex items-center gap-1.5 px-3.5 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-medium bg-pine text-white hover:bg-pine-dark active:scale-[0.98] transition-all shadow-sm">
+          <svg class="w-3.5 h-3.5 sm:w-4 sm:h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="17 8 12 3 7 8"></polyline>
+            <line x1="12" y1="3" x2="12" y2="15"></line>
+          </svg>
+          <span class="hidden sm:inline">上传 / 编辑商家</span>
+          <span class="sm:hidden">编辑</span>
+        </button>
+
+        <!-- 云托管设置按钮 -->
+        <button type="button" onclick="openCloudModal()" title="Supabase 云托管设置" aria-label="Supabase 云托管设置" class="relative w-9 h-9 rounded-full bg-white border border-oat-300 text-charcoal-700 hover:border-pine hover:text-pine flex items-center justify-center transition-all shadow-xs">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M17.5 19H9a7 7 0 1 1 6.71-9h1.79a4.5 4.5 0 1 1 0 9Z"></path>
+          </svg>
+          <!-- 移动端迷你云端连接指示点 -->
+          <span id="mobileCloudDot" class="md:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amberwarm ring-2 ring-oat-100"></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- =========================================================
+       主体 Bento Grid 容器
+  ========================================================== -->
+  <main class="max-w-6xl mx-auto px-4 sm:px-6 pt-5 sm:pt-7 space-y-6 sm:space-y-8">
+
+    <!-- 移动端云端状态轻提示条（桌面端已在顶部导航展示） -->
+    <div class="md:hidden flex items-center justify-between gap-2 px-3.5 py-2 rounded-2xl bg-white/80 border border-oat-300/80 text-xs">
+      <button type="button" onclick="openCloudModal()" class="flex items-center gap-2 min-w-0 text-left">
+        <span id="mobileBarCloudDot" class="w-2 h-2 rounded-full bg-amberwarm shrink-0"></span>
+        <span id="mobileBarCloudText" class="text-charcoal-700 font-medium truncate">本地演示模式 · 点击配置 Supabase 云托管</span>
+      </button>
+      <button type="button" onclick="openStudioDrawer('create')" class="shrink-0 text-pine font-semibold">+ 新增门店</button>
+    </div>
+
+    <!-- 云端已连接但表为空 / 本地门店可一键同步提示条 -->
+    <div id="syncBanner" class="hidden rounded-2xl bg-pine-light/90 border border-pine/20 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div class="flex items-start sm:items-center gap-2.5 text-xs sm:text-sm text-pine-dark">
+        <svg class="w-4 h-4 shrink-0 mt-0.5 sm:mt-0 text-pine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg>
+        <span id="syncBannerText">Supabase 云端已连接，当前展示本地演示门店。您可以一键将其上传到云端托管。</span>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <button id="syncCurrentBtn" type="button" onclick="syncCurrentLocalToCloud()" class="px-3.5 py-1.5 rounded-full bg-pine text-white text-xs font-semibold hover:bg-pine-dark transition-colors">
+          同步当前门店到云端
+        </button>
+        <button id="seedAllCloudBtn" type="button" onclick="seedDemoStoresToCloud()" class="px-3 py-1.5 rounded-full bg-white text-pine border border-pine/20 text-xs font-semibold hover:bg-oat-50 transition-colors">
+          导入全部示例
+        </button>
+      </div>
+    </div>
+
+    <!-- =======================================================
+         板块 1：视觉 Hero 卡片（Kinfolk 杂志感封面 + 毛玻璃 Dock）
+    ======================================================== -->
+    <section class="relative rounded-[28px] overflow-hidden bg-white border border-oat-300/80 shadow-bento">
+      <!-- 上半部视觉封面区 -->
+      <div class="relative min-h-[290px] sm:min-h-[370px] flex flex-col justify-between p-5 sm:p-8 overflow-hidden">
+
+        <!-- 动态封面背景层：有上传图时显示高清大图，无上传图时渲染定制艺术建筑渐变 SVG -->
+        <div id="heroCoverMedia" class="absolute inset-0 z-0">
+          <!-- 默认艺术建筑 SVG 插画背景 -->
+          <div id="heroFallbackArt" class="w-full h-full">
+            <svg viewBox="0 0 1200 520" preserveAspectRatio="xMidYMid slice" class="w-full h-full block">
+              <defs>
+                <linearGradient id="kinfolkBg" x1="0%" y1="0%" x2="100%" y2="100%">
+                  <stop offset="0%" stop-color="#223D33"/>
+                  <stop offset="52%" stop-color="#2C4E41"/>
+                  <stop offset="100%" stop-color="#4A3B31"/>
+                </linearGradient>
+                <radialGradient id="warmSunGlow" cx="78%" cy="22%" r="55%">
+                  <stop offset="0%" stop-color="#E5A973" stop-opacity="0.48"/>
+                  <stop offset="55%" stop-color="#C67D43" stop-opacity="0.16"/>
+                  <stop offset="100%" stop-color="#1F4E3D" stop-opacity="0"/>
+                </radialGradient>
+                <linearGradient id="archGlass" x1="0%" y1="0%" x2="0%" y2="100%">
+                  <stop offset="0%" stop-color="#FCFBF9" stop-opacity="0.18"/>
+                  <stop offset="100%" stop-color="#FCFBF9" stop-opacity="0.03"/>
+                </linearGradient>
+              </defs>
+              <rect width="1200" height="520" fill="url(#kinfolkBg)"/>
+              <rect width="1200" height="520" fill="url(#warmSunGlow)"/>
+              <!-- 极简建筑拱廊几何线条 -->
+              <g stroke="#FAF5EC" stroke-opacity="0.16" fill="none">
+                <path d="M680 520 V220 A135 135 0 0 1 950 220 V520" stroke-width="1.8" fill="url(#archGlass)"/>
+                <path d="M720 520 V235 A95 95 0 0 1 910 235 V520" stroke-width="1.2"/>
+                <path d="M980 520 V270 A110 110 0 0 1 1200 270" stroke-width="1.2"/>
+                <line x1="0" y1="435" x2="1200" y2="435" stroke-opacity="0.12"/>
+                <circle cx="815" cy="185" r="46" stroke-opacity="0.22" stroke-dasharray="4 6"/>
+              </g>
+              <!-- 柔和植物光影轮廓 -->
+              <g fill="#E9C7A7" fill-opacity="0.12">
+                <ellipse cx="1040" cy="160" rx="85" ry="26" transform="rotate(-28 1040 160)"/>
+                <ellipse cx="1095" cy="225" rx="68" ry="20" transform="rotate(-14 1095 225)"/>
+                <ellipse cx="155" cy="95" rx="95" ry="24" transform="rotate(20 155 95)"/>
+              </g>
+            </svg>
+          </div>
+          <!-- 商家上传封面图（移除空 src 避免初始解析即触发 onerror） -->
+          <img id="heroCoverImg" alt="门店实景封面" class="hidden w-full h-full object-cover transition-transform duration-700 ease-apple cursor-zoom-in" onclick="openLightbox(this.src, currentStore.name + ' · 门店实景')" onerror="window.handleHeroImgError && window.handleHeroImgError()">
+          <!-- 高级暖炭暗角渐变，保证白字高对比度阅读 -->
+          <div class="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#181614]/85 via-[#181614]/35 to-[#181614]/15"></div>
+        </div>
+
+        <!-- Hero 顶部：毛玻璃状态徽章与品类标签 -->
+        <div class="relative z-10 flex flex-wrap items-center justify-between gap-2">
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- 动态营业状态 -->
+            <span id="heroStatusBadge" class="glass-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-pine shadow-sm">
+              <span id="heroStatusDot" class="w-2 h-2 rounded-full bg-emerald-500 dot-breathe"></span>
+              <span id="heroStatusText">营业中</span>
+              <span id="heroStatusHours" class="text-charcoal-500 font-normal ml-0.5 hidden sm:inline">· 今日至 21:30</span>
+            </span>
+
+            <!-- 品类标签 -->
+            <span id="heroCategoryBadge" class="glass-dark inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-medium text-oat-50 border border-white/15">
+              精品咖啡 · 手作烘焙
+            </span>
+          </div>
+
+          <!-- 数据来源小标签（云端 / 本地） -->
+          <span id="heroOriginBadge" class="glass-dark inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-medium text-oat-200 border border-white/15">
+            本地示例
+          </span>
+        </div>
+
+        <!-- Hero 底部：杂志级排版店名、Slogan 与快捷地址 -->
+        <div class="relative z-10 mt-12 sm:mt-16 flex flex-col lg:flex-row lg:items-end justify-between gap-5">
+          <div class="space-y-2.5 max-w-2xl">
+            <h1 id="heroTitle" class="font-serif text-2xl sm:text-4xl font-semibold tracking-tight text-white leading-tight drop-shadow-xs">
+              拾光手作咖啡馆 · 静安巷店
+            </h1>
+            <p id="heroTagline" class="text-sm sm:text-base text-oat-100/90 leading-relaxed font-normal">
+              藏于梧桐老巷的慢节奏手冲与烘焙空间 · 顺着街角暖光轻松找到我们
+            </p>
+            <div class="flex items-center gap-2 text-xs sm:text-sm text-oat-200/90 pt-1">
+              <svg class="w-4 h-4 text-amberwarm-mid shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+              <span id="heroAddressLine" class="line-clamp-2">上海市静安区静安巷 88 号拾光广场 1 层 L108 室</span>
+            </div>
+          </div>
+
+          <!-- 桌面端右侧快速查看上传封面提示 / 分享二维码入口 -->
+          <div class="hidden lg:flex items-center gap-2 shrink-0">
+            <button type="button" onclick="openShareModal()" class="glass-dark hover:bg-white/20 text-white px-4 py-2.5 rounded-2xl border border-white/20 text-xs font-medium inline-flex items-center gap-2 transition-all">
+              <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+              门店二维码名片
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Hero 底部毛玻璃快捷交互 Dock（四项核心高频操作） -->
+      <div class="bg-white/95 border-t border-oat-200 px-3 sm:px-6 py-3 sm:py-3.5">
+        <div class="grid grid-cols-4 gap-2 sm:gap-3">
+          <!-- 一键导航 -->
+          <button type="button" onclick="openNavModal()" class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-4 rounded-2xl bg-pine text-white hover:bg-pine-dark active:scale-[0.98] transition-all shadow-xs">
+            <svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+            <span class="text-[11px] sm:text-sm font-semibold">一键导航</span>
+          </button>
+
+          <!-- 复制地址 -->
+          <button type="button" onclick="copyCurrentAddress()" class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-4 rounded-2xl bg-amberwarm-light text-amberwarm-dark hover:bg-amberwarm hover:text-white active:scale-[0.98] transition-all border border-amberwarm/20">
+            <svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span class="text-[11px] sm:text-sm font-semibold">复制地址</span>
+          </button>
+
+          <!-- 拨打电话 -->
+          <a id="dockPhoneLink" href="tel:021-62889412" onclick="notifyCalling()" class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-4 rounded-2xl bg-oat-100 text-charcoal-900 hover:bg-oat-200 active:scale-[0.98] transition-all border border-oat-300/70">
+            <svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 text-pine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+            <span class="text-[11px] sm:text-sm font-semibold">联系门店</span>
+          </a>
+
+          <!-- 分享门店 -->
+          <button type="button" onclick="openShareModal()" class="flex flex-col sm:flex-row items-center justify-center gap-1.5 sm:gap-2 py-2.5 px-2 sm:px-4 rounded-2xl bg-oat-100 text-charcoal-900 hover:bg-oat-200 active:scale-[0.98] transition-all border border-oat-300/70">
+            <svg class="w-4 h-4 sm:w-4.5 sm:h-4.5 shrink-0 text-amberwarm" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="18" cy="5" r="3"></circle><circle cx="6" cy="12" r="3"></circle><circle cx="18" cy="19" r="3"></circle><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"></line><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"></line></svg>
+            <span class="text-[11px] sm:text-sm font-semibold">分享链接</span>
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         板块 2：交互式交通路线与手绘风动态矢量地图（核心 Bento 区）
+    ======================================================== -->
+    <section class="rounded-[28px] bg-white border border-oat-300/80 shadow-bento p-5 sm:p-7 space-y-6">
+
+      <!-- 标题栏 + Apple 质感胶囊分段控制器 -->
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-amberwarm">Wayfinding Guide</span>
+          <h2 class="font-serif text-xl sm:text-2xl font-semibold text-charcoal-900 mt-0.5">交互式到店路线指引</h2>
+        </div>
+
+        <!-- 胶囊分段控制器（Segmented Control） -->
+        <div class="grid grid-cols-4 gap-1 p-1 rounded-full bg-oat-100 border border-oat-300/80 w-full md:w-auto" role="tablist">
+          <button type="button" role="tab" data-mode="subway" onclick="switchRouteMode('subway')" class="route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple bg-pine text-white shadow-sm">
+            <svg class="w-3.5 h-3.5 hidden sm:block shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="3" width="16" height="16" rx="2"></rect><path d="M4 11h16"></path><path d="M12 3v8"></path><path d="m8 19-2 3"></path><path d="m18 22-2-3"></path></svg>
+            地铁
+          </button>
+          <button type="button" role="tab" data-mode="car" onclick="switchRouteMode('car')" class="route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple text-charcoal-700 hover:text-charcoal-900">
+            <svg class="w-3.5 h-3.5 hidden sm:block shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"></path><circle cx="7" cy="17" r="2"></circle><circle cx="17" cy="17" r="2"></circle></svg>
+            自驾
+          </button>
+          <button type="button" role="tab" data-mode="bus" onclick="switchRouteMode('bus')" class="route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple text-charcoal-700 hover:text-charcoal-900">
+            <svg class="w-3.5 h-3.5 hidden sm:block shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 6v6"></path><path d="M15 6v6"></path><path d="M2 12h19.6"></path><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"></path><circle cx="7" cy="18" r="2"></circle><circle cx="15" cy="18" r="2"></circle></svg>
+            公交
+          </button>
+          <button type="button" role="tab" data-mode="taxi" onclick="switchRouteMode('taxi')" class="route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple text-charcoal-700 hover:text-charcoal-900">
+            <svg class="w-3.5 h-3.5 hidden sm:block shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10 2h4"></path><path d="m21 8-2 2-1.5-3.7A2 2 0 0 0 15.646 5H8.4a2 2 0 0 0-1.903 1.257L5 10 3 8"></path><rect width="18" height="8" x="3" y="10" rx="2"></rect><path d="M5 18v2"></path><path d="M19 18v2"></path></svg>
+            打车
+          </button>
+        </div>
+      </div>
+
+      <!-- 双栏 Bento 主区：左侧互动街区地图 + 右侧详细路线与实景地标卡 -->
+      <div class="grid grid-cols-1 lg:grid-cols-12 gap-5 sm:gap-6 items-start">
+
+        <!-- 左侧（7列）：手绘质感交互式 SVG 矢量地图 -->
+        <div class="lg:col-span-7 space-y-3">
+          <div class="relative rounded-3xl overflow-hidden border border-oat-300 bg-[#F4EFE6]">
+            <!-- 左上角实时高亮路线微标 -->
+            <div class="absolute top-3 left-3 z-10 pointer-events-none">
+              <span id="mapModePill" class="glass-pill inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-semibold text-pine border border-white/60 shadow-sm">
+                <span id="mapModeDot" class="w-2 h-2 rounded-full bg-pine"></span>
+                <span id="mapModeLabel">地铁步行路线 · 约 5 分钟</span>
+              </span>
+            </div>
+
+            <!-- 交互式矢量街区地图 SVG -->
+            <svg id="interactiveMap" viewBox="0 0 740 460" class="w-full h-auto block select-none" role="img" aria-label="交互式手绘风街区矢量路线图">
+              <defs>
+                <filter id="pinShadow" x="-20%" y="-20%" width="140%" height="140%">
+                  <feDropShadow dx="0" dy="4" stdDeviation="3.5" flood-color="#1F1D1B" flood-opacity="0.14"/>
+                </filter>
+                <pattern id="gardenDots" width="14" height="14" patternUnits="userSpaceOnUse">
+                  <circle cx="4" cy="4" r="1.4" fill="#A9C1AD" opacity="0.65"/>
+                  <circle cx="11" cy="11" r="1" fill="#8EAD93" opacity="0.5"/>
+                </pattern>
+                <radialGradient id="destHalo" cx="50%" cy="50%" r="50%">
+                  <stop offset="0%" stop-color="#C67D43" stop-opacity="0.38"/>
+                  <stop offset="100%" stop-color="#C67D43" stop-opacity="0"/>
+                </radialGradient>
+              </defs>
+
+              <!-- 羊皮纸暖底 -->
+              <rect width="740" height="460" fill="#F4EFE6"/>
+
+              <!-- 街区口袋公园 -->
+              <rect x="252" y="34" width="192" height="92" rx="20" fill="#E2EBDE"/>
+              <rect x="252" y="34" width="192" height="92" rx="20" fill="url(#gardenDots)"/>
+              <g fill="#6E9476" opacity="0.72">
+                <circle cx="286" cy="68" r="13"/>
+                <circle cx="302" cy="60" r="9"/>
+                <circle cx="412" cy="92" r="13"/>
+                <circle cx="397" cy="100" r="8"/>
+              </g>
+              <text x="348" y="82" text-anchor="middle" fill="#3D5E47" font-size="11" font-weight="600">街角口袋花园</text>
+
+              <!-- 建筑群轮廓块 -->
+              <g fill="#EAE2D4" stroke="#DDD4C4" stroke-width="1.4">
+                <rect x="28" y="36" width="160" height="90" rx="14"/>
+                <rect x="508" y="34" width="204" height="114" rx="18" fill="#EFE7DA"/>
+                <rect x="28" y="186" width="160" height="148" rx="16"/>
+                <rect x="250" y="186" width="194" height="148" rx="16"/>
+                <!-- 门店所在庭院建筑 -->
+                <rect x="506" y="186" width="206" height="148" rx="18" fill="#FCFBF8" stroke="#D8C9B5" stroke-width="2"/>
+                <rect x="28" y="390" width="310" height="44" rx="12"/>
+                <rect x="400" y="390" width="312" height="44" rx="12"/>
+              </g>
+
+              <!-- 门店庭院虚线装饰 -->
+              <rect x="522" y="202" width="174" height="116" rx="12" fill="#FAF4EA" stroke="#E5D5C0" stroke-dasharray="4 4"/>
+
+              <!-- 可点击转角关键地标建筑 -->
+              <g class="cursor-pointer transition-opacity hover:opacity-90" onclick="focusMapPin('landmark')">
+                <rect x="358" y="198" width="76" height="60" rx="12" fill="#CF7D63" stroke="#AF5F46" stroke-width="1.5"/>
+                <line x1="369" y1="214" x2="423" y2="214" stroke="#FCECE6" stroke-width="1.5" stroke-dasharray="4 3"/>
+                <text x="396" y="234" text-anchor="middle" fill="#FFFFFF" font-size="10.5" font-weight="700">转角红砖楼</text>
+                <text x="396" y="248" text-anchor="middle" fill="#FCECE6" font-size="9">关键认路标</text>
+              </g>
+
+              <!-- 辅助社区空间 -->
+              <rect x="266" y="264" width="84" height="54" rx="10" fill="#E0D7C7" stroke="#CFC4B2" stroke-width="1.2"/>
+              <text x="308" y="295" text-anchor="middle" fill="#645B51" font-size="10.5" font-weight="600">社区书廊</text>
+
+              <!-- 道路路缘底色 -->
+              <g fill="none" stroke="#DFD5C5" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M0 156 L740 156" stroke-width="34"/>
+                <path d="M0 362 L740 362" stroke-width="36"/>
+                <path d="M218 0 L218 460" stroke-width="30"/>
+                <path d="M474 0 L474 460" stroke-width="26"/>
+              </g>
+
+              <!-- 道路纯白路面 -->
+              <g fill="none" stroke="#FFFFFF" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M0 156 L740 156" stroke-width="30"/>
+                <path d="M0 362 L740 362" stroke-width="32"/>
+                <path d="M218 0 L218 460" stroke-width="26"/>
+                <path d="M474 0 L474 460" stroke-width="22"/>
+              </g>
+
+              <!-- 道路精致中线 -->
+              <g fill="none" stroke="#EBE4D9" stroke-width="1.5" stroke-dasharray="7 7">
+                <path d="M12 156 L728 156"/>
+                <path d="M12 362 L728 362"/>
+                <path d="M218 12 L218 448"/>
+              </g>
+
+              <!-- 街道名称标注 -->
+              <g fill="#7C7368" font-size="11" font-weight="600">
+                <text x="86" y="160">北侧林荫大道</text>
+                <text x="84" y="366">主干商业大道</text>
+                <text x="218" y="264" text-anchor="middle" transform="rotate(-90 218 264)">西侧连接路</text>
+                <text x="474" y="92" text-anchor="middle" fill="#A6632E">慢行精品巷</text>
+              </g>
+
+              <!-- 极简指南针 -->
+              <g transform="translate(696, 48)">
+                <circle cx="0" cy="0" r="18" fill="#FFFFFF" fill-opacity="0.92" stroke="#E0D7C8" stroke-width="1.2"/>
+                <polygon points="0,-10 3.5,1 0,-1 -3.5,1" fill="#C67D43"/>
+                <polygon points="0,10 3.5,1 0,3 -3.5,1" fill="#B2A89C"/>
+                <text x="0" y="-12" text-anchor="middle" font-size="7.5" font-weight="700" fill="#6E675F">N</text>
+              </g>
+
+              <!-- ===============================================
+                   四条出行方式的动态流光路线
+              ================================================ -->
+              <!-- 1. 地铁步行路线 -->
+              <g id="svg-route-subway" class="transition-opacity duration-300 opacity-100">
+                <path d="M118 362 L474 362 L474 252 L566 252" fill="none" stroke="#1F4E3D" stroke-opacity="0.2" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M118 362 L474 362 L474 252 L566 252" fill="none" stroke="#1F4E3D" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="route-glow-dash"/>
+              </g>
+
+              <!-- 2. 自驾停车路线 -->
+              <g id="svg-route-car" class="transition-opacity duration-300 opacity-15">
+                <path d="M46 156 L618 156 L618 182 L566 252" fill="none" stroke="#C67D43" stroke-opacity="0.22" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M46 156 L618 156 L618 182 L566 252" fill="none" stroke="#C67D43" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="route-glow-dash"/>
+              </g>
+
+              <!-- 3. 公交步行路线 -->
+              <g id="svg-route-bus" class="transition-opacity duration-300 opacity-15">
+                <path d="M322 362 L474 362 L474 252 L566 252" fill="none" stroke="#356A87" stroke-opacity="0.22" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M322 362 L474 362 L474 252 L566 252" fill="none" stroke="#356A87" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="route-glow-dash"/>
+              </g>
+
+              <!-- 4. 打车/骑行下车点路线 -->
+              <g id="svg-route-taxi" class="transition-opacity duration-300 opacity-15">
+                <path d="M474 156 L474 252 L566 252" fill="none" stroke="#8C5934" stroke-opacity="0.22" stroke-width="9" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M474 156 L474 252 L566 252" fill="none" stroke="#8C5934" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" class="route-glow-dash"/>
+              </g>
+
+              <!-- ===============================================
+                   交互式坐标点（点击触发详情气泡）
+              ================================================ -->
+              <!-- 地铁出口 -->
+              <g class="cursor-pointer" onclick="focusMapPin('subway')">
+                <circle cx="118" cy="362" r="16" fill="#1F4E3D" stroke="#FFFFFF" stroke-width="2.5" filter="url(#pinShadow)"/>
+                <text x="118" y="366" text-anchor="middle" fill="#FFFFFF" font-size="11" font-weight="700">M</text>
+                <rect x="50" y="388" width="136" height="24" rx="12" fill="#FFFFFF" stroke="#1F4E3D" stroke-width="1.2"/>
+                <text id="svgLabelSubway" x="118" y="404" text-anchor="middle" fill="#1F4E3D" font-size="10.5" font-weight="700">地铁站出口</text>
+              </g>
+
+              <!-- 公交站 -->
+              <g class="cursor-pointer" onclick="focusMapPin('bus')">
+                <circle cx="322" cy="362" r="15" fill="#356A87" stroke="#FFFFFF" stroke-width="2.5" filter="url(#pinShadow)"/>
+                <text x="322" y="366" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700">公</text>
+                <rect x="262" y="388" width="120" height="24" rx="12" fill="#FFFFFF" stroke="#356A87" stroke-width="1.2"/>
+                <text id="svgLabelBus" x="322" y="404" text-anchor="middle" fill="#356A87" font-size="10.5" font-weight="700">公交站</text>
+              </g>
+
+              <!-- 停车场入口 -->
+              <g class="cursor-pointer" onclick="focusMapPin('car')">
+                <circle cx="618" cy="156" r="16" fill="#C67D43" stroke="#FFFFFF" stroke-width="2.5" filter="url(#pinShadow)"/>
+                <text x="618" y="160.5" text-anchor="middle" fill="#FFFFFF" font-size="12" font-weight="700">P</text>
+                <rect x="546" y="106" width="144" height="24" rx="12" fill="#FFFFFF" stroke="#C67D43" stroke-width="1.2"/>
+                <text id="svgLabelCar" x="618" y="122" text-anchor="middle" fill="#A6632E" font-size="10.5" font-weight="700">地下车库入口</text>
+              </g>
+
+              <!-- 打车推荐下车点 -->
+              <g class="cursor-pointer" onclick="focusMapPin('taxi')">
+                <circle cx="474" cy="156" r="15" fill="#8C5934" stroke="#FFFFFF" stroke-width="2.5" filter="url(#pinShadow)"/>
+                <text x="474" y="160" text-anchor="middle" fill="#FFFFFF" font-size="10" font-weight="700">停</text>
+                <rect x="412" y="108" width="124" height="24" rx="12" fill="#FFFFFF" stroke="#8C5934" stroke-width="1.2"/>
+                <text id="svgLabelTaxi" x="474" y="124" text-anchor="middle" fill="#8C5934" font-size="10.5" font-weight="700">推荐临停下车点</text>
+              </g>
+
+              <!-- 核心门店主坐标（呼吸脉动光环） -->
+              <g class="cursor-pointer" onclick="focusMapPin('store')">
+                <circle cx="574" cy="252" r="38" fill="url(#destHalo)"/>
+                <circle cx="574" cy="252" r="16" fill="none" stroke="#C67D43" stroke-width="2.5" class="beacon-ring"/>
+                <g transform="translate(574, 252)" filter="url(#pinShadow)">
+                  <path d="M0,-25 C11.5,-25 20,-16.5 20,-5 C20,7.5 0,22 0,22 C0,22 -20,7.5 -20,-5 C-20,-16.5 -11.5,-25 0,-25 Z" fill="#C67D43" stroke="#FFFFFF" stroke-width="2.5"/>
+                  <circle cx="0" cy="-6" r="6.5" fill="#FFFFFF"/>
+                  <circle cx="0" cy="-6" r="3" fill="#1F4E3D"/>
+                </g>
+                <rect x="508" y="276" width="150" height="28" rx="14" fill="#1F1D1B" filter="url(#pinShadow)"/>
+                <text id="svgLabelStore" x="583" y="294" text-anchor="middle" fill="#FFFFFF" font-size="11.5" font-weight="600">拾光手作咖啡馆</text>
+              </g>
+            </svg>
+
+            <!-- 地图交互详情浮层气泡 -->
+            <div class="m-3 sm:m-0 sm:absolute sm:bottom-3.5 sm:left-3.5 sm:max-w-sm glass-pill border border-white/80 rounded-2xl p-3.5 shadow-glass flex items-start gap-3">
+              <div id="bubbleBadge" class="w-9 h-9 rounded-xl bg-pine-light text-pine flex items-center justify-center shrink-0 font-bold text-sm">M</div>
+              <div class="min-w-0 flex-1">
+                <div class="flex items-center justify-between gap-2">
+                  <h3 id="bubbleTitle" class="text-xs sm:text-sm font-bold text-charcoal-900 truncate">静安寺站 · 4号口</h3>
+                  <span id="bubbleMeta" class="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-pine-light text-pine shrink-0">约 5 分钟</span>
+                </div>
+                <p id="bubbleDesc" class="text-xs text-charcoal-500 mt-1 leading-relaxed">
+                  出站后沿主干道向东直行，看到转角红砖建筑左转入巷即达。
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <!-- 地图地标快捷定位药丸 -->
+          <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-0.5">
+            <span class="text-[11px] text-charcoal-400 shrink-0">点击聚焦坐标：</span>
+            <button type="button" onclick="focusMapPin('subway')" class="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-oat-100 hover:bg-pine-light hover:text-pine text-charcoal-700 transition-colors">地铁出口</button>
+            <button type="button" onclick="focusMapPin('landmark')" class="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-oat-100 hover:bg-amberwarm-light hover:text-amberwarm-dark text-charcoal-700 transition-colors">转角地标</button>
+            <button type="button" onclick="focusMapPin('car')" class="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-oat-100 hover:bg-amberwarm-light hover:text-amberwarm-dark text-charcoal-700 transition-colors">停车场</button>
+            <button type="button" onclick="focusMapPin('taxi')" class="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-oat-100 hover:bg-oat-200 text-charcoal-700 transition-colors">临停下车点</button>
+            <button type="button" onclick="focusMapPin('store')" class="shrink-0 px-3 py-1 rounded-full text-xs font-medium bg-oat-100 hover:bg-amberwarm-light hover:text-amberwarm-dark text-charcoal-700 transition-colors">门店主坐标</button>
+          </div>
+        </div>
+
+        <!-- 右侧（5列）：当前路线分步详情 + 防迷路实景地标卡 -->
+        <div class="lg:col-span-5 space-y-4">
+          <!-- 当前路线摘要与分步时间轴 -->
+          <div class="rounded-3xl bg-oat-50 border border-oat-200 p-5 space-y-4">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <span id="routePanelTag" class="inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full bg-pine-light text-pine mb-1.5">地铁出行指引</span>
+                <h3 id="routePanelTitle" class="text-base font-bold text-charcoal-900 leading-snug">2号线/7号线 静安寺站 · 4号口</h3>
+              </div>
+              <div class="shrink-0 text-right px-3 py-1.5 rounded-2xl bg-white border border-oat-200">
+                <span class="block text-[10px] text-charcoal-400">预计耗时 / 距离</span>
+                <span id="routePanelDuration" class="text-xs font-bold text-pine">步行 5 分钟 · 350米</span>
+              </div>
+            </div>
+
+            <!-- 关键认路线索 -->
+            <div class="px-3.5 py-2.5 rounded-2xl bg-white border border-oat-200 flex items-start gap-2 text-xs text-charcoal-700">
+              <svg class="w-4 h-4 text-amberwarm shrink-0 mt-0.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+              <span><strong class="text-charcoal-900">关键地标：</strong><span id="routePanelLandmark">认准红砖老邮局路口左转进入静安巷</span></span>
+            </div>
+
+            <!-- 动态渲染的分步指引时间轴 -->
+            <ol id="routeStepsList" class="relative border-l-2 border-oat-300 ml-2.5 space-y-4 pt-1">
+              <!-- JS 动态填充步骤 -->
+            </ol>
+          </div>
+
+          <!-- 防迷路实景地标卡（展示商家上传的门头/转角图，无图时显示精致建筑线稿 SVG） -->
+          <div class="rounded-3xl bg-white border border-oat-300/90 overflow-hidden shadow-xs">
+            <div class="relative aspect-[16/10] bg-oat-100 overflow-hidden group">
+              <!-- 默认建筑线稿 SVG 门头插画 -->
+              <div id="landmarkFallbackSvg" class="w-full h-full flex items-center justify-center p-3 bg-[#F6F1E9]">
+                <svg viewBox="0 0 360 200" class="w-full h-full" aria-label="门店防迷路建筑线稿插图">
+                  <rect width="360" height="200" rx="12" fill="#F8F4EC"/>
+                  <!-- 柔和日光斜影 -->
+                  <polygon points="0,0 165,0 90,200 0,200" fill="#EFE7DA" opacity="0.55"/>
+                  <!-- 地面石阶线 -->
+                  <line x1="20" y1="166" x2="340" y2="166" stroke="#C7BCAE" stroke-width="1.5"/>
+                  <!-- 门店外立面线稿 -->
+                  <rect x="64" y="34" width="232" height="132" rx="6" fill="#FFFFFF" stroke="#45403B" stroke-width="1.6"/>
+                  <!-- 焦糖遮阳棚 -->
+                  <path d="M54 68 L306 68 L296 86 L64 86 Z" fill="#C67D43" fill-opacity="0.88" stroke="#45403B" stroke-width="1.4"/>
+                  <line x1="114" y1="68" x2="110" y2="86" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2"/>
+                  <line x1="180" y1="68" x2="180" y2="86" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2"/>
+                  <line x1="246" y1="68" x2="250" y2="86" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="1.2"/>
+                  <!-- 拱形原木玻璃门 -->
+                  <path d="M144 166 V114 A36 30 0 0 1 216 114 V166 Z" fill="#EBF3EF" stroke="#1F4E3D" stroke-width="2"/>
+                  <line x1="180" y1="84" x2="180" y2="166" stroke="#1F4E3D" stroke-width="1.5"/>
+                  <circle cx="173" cy="134" r="2.2" fill="#C67D43"/>
+                  <circle cx="187" cy="134" r="2.2" fill="#C67D43"/>
+                  <!-- 左右落地橱窗 -->
+                  <rect x="80" y="102" width="48" height="48" rx="4" fill="#FCF7F0" stroke="#7E756B" stroke-width="1.3"/>
+                  <rect x="232" y="102" width="48" height="48" rx="4" fill="#FCF7F0" stroke="#7E756B" stroke-width="1.3"/>
+                  <!-- 顶部店招牌 -->
+                  <rect x="128" y="44" width="104" height="17" rx="4" fill="#1F4E3D"/>
+                  <text id="landmarkSvgSign" x="180" y="55.5" text-anchor="middle" fill="#FAF7F2" font-size="9" font-weight="600">STOREFRONT</text>
+                  <!-- 门廊绿植 -->
+                  <circle cx="128" cy="144" r="10" fill="#39735D" opacity="0.85"/>
+                  <rect x="123" y="152" width="10" height="14" rx="2" fill="#C67D43"/>
+                  <circle cx="232" cy="144" r="10" fill="#39735D" opacity="0.85"/>
+                  <rect x="227" y="152" width="10" height="14" rx="2" fill="#C67D43"/>
+                </svg>
+              </div>
+              <!-- 商家上传的实景门头/转角照片（移除空 src 避免初始解析即触发 onerror） -->
+              <img id="landmarkRealImg" alt="门店防迷路实景地标图" class="hidden w-full h-full object-cover cursor-zoom-in group-hover:scale-[1.03] transition-transform duration-500 ease-apple" onclick="openLightbox(this.src, currentStore.name + ' · 门头/转角实景指引')" onerror="window.handleLandmarkImgError && window.handleLandmarkImgError()">
+
+              <!-- 左上角防迷路角标 -->
+              <span class="absolute top-3 left-3 glass-dark text-white text-[11px] font-medium px-2.5 py-1 rounded-full border border-white/15">
+                防迷路实景地标
+              </span>
+              <!-- 右下角放大提示（仅当有真实照片时展示） -->
+              <span id="landmarkZoomBadge" class="hidden absolute bottom-2.5 right-2.5 glass-pill text-charcoal-900 text-[11px] font-semibold px-2.5 py-1 rounded-full shadow-xs pointer-events-none">
+                点击查看大图
+              </span>
+            </div>
+
+            <div class="p-4 flex items-center justify-between gap-3">
+              <div class="min-w-0">
+                <p class="text-xs font-bold text-charcoal-900">门头与转角视觉确认</p>
+                <p id="landmarkCaption" class="text-xs text-charcoal-500 mt-0.5 line-clamp-2">沿街原木拱门与焦糖色布艺雨棚清晰可见，推门即入。</p>
+              </div>
+              <button type="button" onclick="openStudioDrawer('edit', 'media')" class="shrink-0 px-3 py-1.5 rounded-xl bg-oat-100 hover:bg-pine-light hover:text-pine text-[11px] font-semibold text-charcoal-700 transition-colors">
+                更换实景图
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- =======================================================
+         板块 3：门店详情 Bento Grid（营业时间 / 停车贴士 / 设施服务 / FAQ）
+    ======================================================== -->
+    <section class="grid grid-cols-1 md:grid-cols-12 gap-5 sm:gap-6">
+
+      <!-- Bento 卡片 A：营业时间与联系方式（5列） -->
+      <div class="md:col-span-5 rounded-[28px] bg-white border border-oat-300/80 shadow-bento p-5 sm:p-6 flex flex-col justify-between gap-5">
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-pine">Hours & Contact</span>
+            <span id="bentoOpenChip" class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-pine-light text-pine">
+              <span class="w-1.5 h-1.5 rounded-full bg-pine"></span>
+              营业中
+            </span>
+          </div>
+
+          <h2 class="font-serif text-lg sm:text-xl font-semibold text-charcoal-900">营业时间与联络</h2>
+
+          <!-- 当日高亮营业卡片 -->
+          <div class="p-4 rounded-2xl bg-oat-50 border border-oat-200 space-y-2.5">
+            <div class="flex items-center justify-between text-sm">
+              <span class="text-charcoal-500 flex items-center gap-1.5">
+                <svg class="w-4 h-4 text-pine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                每日营业时段
+              </span>
+              <span id="bentoHoursRange" class="font-bold text-charcoal-900 tabular-nums">08:30 - 21:30</span>
+            </div>
+            <p id="bentoHoursHint" class="text-xs text-amberwarm-dark pt-2 border-t border-oat-200">
+              当前处于营业时段内，建议闭店前 30 分钟完成到店点单。
+            </p>
+          </div>
+
+          <!-- 详细地址与电话 -->
+          <div class="space-y-3 text-sm">
+            <div class="flex items-start justify-between gap-3">
+              <div class="space-y-0.5 min-w-0">
+                <span class="text-[11px] text-charcoal-400 block">门店详细地址</span>
+                <p id="bentoAddress" class="text-charcoal-900 font-medium leading-relaxed">上海市静安区静安巷 88 号拾光广场 1 层 L108 室</p>
+              </div>
+              <button type="button" onclick="copyCurrentAddress()" class="shrink-0 mt-1 px-2.5 py-1 rounded-lg bg-oat-100 hover:bg-pine-light hover:text-pine text-xs font-semibold text-charcoal-700 transition-colors">
+                复制
+              </button>
+            </div>
+
+            <div class="flex items-center justify-between gap-3 pt-2 border-t border-oat-200">
+              <div class="space-y-0.5 min-w-0">
+                <span class="text-[11px] text-charcoal-400 block">联系电话（问路 / 预留座位）</span>
+                <a id="bentoPhoneText" href="tel:021-62889412" class="text-charcoal-900 font-semibold hover:text-pine tabular-nums block">021-6288-9412</a>
+              </div>
+              <div class="flex items-center gap-1.5 shrink-0">
+                <button type="button" onclick="copyText(currentStore.phone, '门店电话已复制')" class="px-2.5 py-1 rounded-lg bg-oat-100 hover:bg-oat-200 text-xs font-medium text-charcoal-700 transition-colors">
+                  复制
+                </button>
+                <a id="bentoCallBtn" href="tel:021-62889412" onclick="notifyCalling()" class="px-3 py-1 rounded-lg bg-pine text-white text-xs font-semibold hover:bg-pine-dark transition-colors">
+                  拨打
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Bento 卡片 B：停车贴士 + 门店设施服务标签云（7列） -->
+      <div class="md:col-span-7 flex flex-col gap-5 sm:gap-6">
+        <!-- 停车与周边到店贴士 -->
+        <div class="rounded-[28px] bg-white border border-oat-300/80 shadow-bento p-5 sm:p-6 space-y-3">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-amberwarm">Arrival Notes</span>
+            <button type="button" onclick="switchRouteMode('car'); document.getElementById('interactiveMap').scrollIntoView({behavior:'smooth', block:'center'});" class="text-xs font-semibold text-pine hover:underline">
+              查看地库路线 →
+            </button>
+          </div>
+          <h2 class="font-serif text-lg sm:text-xl font-semibold text-charcoal-900">停车与周边贴士</h2>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+            <div class="p-3.5 rounded-2xl bg-amberwarm-light/65 border border-amberwarm/15 space-y-1">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-amberwarm-dark">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="4"></rect><path d="M9 17V7h4a3 3 0 0 1 0 6H9"></path></svg>
+                自驾停车提示
+              </div>
+              <p id="bentoParkingSummary" class="text-xs text-charcoal-700 leading-relaxed">拾光广场地下停车场（B2层A区直梯直达），消费满 68 元免停 2 小时。</p>
+            </div>
+            <div class="p-3.5 rounded-2xl bg-pine-light/65 border border-pine/15 space-y-1">
+              <div class="flex items-center gap-1.5 text-xs font-bold text-pine-dark">
+                <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path></svg>
+                临停与防绕路提醒
+              </div>
+              <p id="bentoTaxiSummary" class="text-xs text-charcoal-700 leading-relaxed">网约车建议直接定位「梧桐大道与静安巷交叉口」，下车步行 80 米免绕行。</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- 门店设施与服务标签云 -->
+        <div class="rounded-[28px] bg-white border border-oat-300/80 shadow-bento p-5 sm:p-6 space-y-4 flex-1">
+          <div class="flex items-center justify-between">
+            <div>
+              <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-pine">Amenities</span>
+              <h2 class="font-serif text-lg sm:text-xl font-semibold text-charcoal-900 mt-0.5">空间设施与服务</h2>
+            </div>
+            <button type="button" onclick="openStudioDrawer('edit', 'extras')" class="text-xs font-medium text-charcoal-400 hover:text-pine transition-colors">
+              编辑标签
+            </button>
+          </div>
+
+          <div id="facilitiesTagCloud" class="flex flex-wrap gap-2">
+            <!-- JS 动态渲染带图标的设施胶囊 -->
+          </div>
+        </div>
+      </div>
+
+      <!-- Bento 卡片 C：折叠式常见问题 FAQ 手风琴（占满 12 列） -->
+      <div class="md:col-span-12 rounded-[28px] bg-white border border-oat-300/80 shadow-bento p-5 sm:p-7 space-y-4">
+        <div class="flex items-center justify-between gap-2">
+          <div>
+            <span class="text-[11px] font-semibold uppercase tracking-[0.14em] text-amberwarm">Frequently Asked</span>
+            <h2 class="font-serif text-lg sm:text-xl font-semibold text-charcoal-900 mt-0.5">到店常见问题解答</h2>
+          </div>
+          <button type="button" onclick="openStudioDrawer('edit', 'extras')" class="px-3 py-1.5 rounded-full bg-oat-100 hover:bg-oat-200 text-xs font-medium text-charcoal-700 transition-colors">
+            管理 FAQ
+          </button>
+        </div>
+
+        <div id="faqAccordionList" class="divide-y divide-oat-200 border border-oat-200 rounded-2xl overflow-hidden bg-oat-50/50">
+          <!-- JS 动态渲染 FAQ 条目 -->
+        </div>
+      </div>
+    </section>
+
+    <!-- 页脚优雅收尾 -->
+    <footer class="pt-4 pb-6 text-center space-y-2">
+      <p id="footerBrandLine" class="font-serif text-sm text-charcoal-500">拾光手作咖啡馆 · 静安巷店</p>
+      <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-charcoal-400">
+        <button type="button" onclick="openStudioDrawer('create')" class="hover:text-pine transition-colors">新增商家入驻</button>
+        <span>·</span>
+        <button type="button" onclick="openCloudModal()" class="hover:text-pine transition-colors">Supabase 云托管配置</button>
+        <span>·</span>
+        <button type="button" onclick="openShareModal()" class="hover:text-pine transition-colors">生成门店二维码</button>
+      </div>
+    </footer>
+  </main>
+
+  <!-- =========================================================
+       移动端底部快捷悬浮栏（单手触控友好）
+  ========================================================== -->
+  <div class="sm:hidden fixed bottom-0 inset-x-0 z-30 glass-nav border-t border-oat-300/80 px-4 py-2.5">
+    <div class="flex items-center gap-2.5">
+      <button type="button" onclick="openNavModal()" class="flex-1 py-2.5 rounded-2xl bg-pine text-white text-xs font-semibold flex items-center justify-center gap-1.5 shadow-sm active:scale-[0.98] transition-transform">
+        <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="3 11 22 2 13 21 11 13 3 11"></polygon></svg>
+        一键导航到店
+      </button>
+      <a id="mobileBottomCall" href="tel:021-62889412" onclick="notifyCalling()" class="px-4 py-2.5 rounded-2xl bg-white border border-oat-300 text-charcoal-900 text-xs font-semibold flex items-center gap-1.5 active:scale-[0.98] transition-transform">
+        <svg class="w-4 h-4 text-pine" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"></path></svg>
+        电话
+      </a>
+      <button type="button" onclick="openStudioDrawer('create')" class="px-3.5 py-2.5 rounded-2xl bg-amberwarm-light border border-amberwarm/25 text-amberwarm-dark text-xs font-semibold active:scale-[0.98] transition-transform">
+        + 上传
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       弹窗 1：外部地图一键导航选择
+  ========================================================== -->
+  <div id="navModal" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4 bg-charcoal-900/45 backdrop-blur-xs" onclick="if(event.target===this) closeModal('navModal')">
+    <div class="w-full sm:max-w-md bg-white rounded-t-[28px] sm:rounded-[28px] border border-oat-300 shadow-glass p-6 space-y-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-pine">Navigation</span>
+          <h3 class="font-serif text-lg font-semibold text-charcoal-900 mt-0.5">选择地图应用开始导航</h3>
+          <p id="navModalAddress" class="text-xs text-charcoal-500 mt-1 line-clamp-2"></p>
+        </div>
+        <button type="button" onclick="closeModal('navModal')" class="w-8 h-8 rounded-full bg-oat-100 hover:bg-oat-200 flex items-center justify-center text-charcoal-500">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <div class="grid grid-cols-2 gap-3">
+        <a id="navAmapLink" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 p-3.5 rounded-2xl bg-oat-50 hover:bg-pine-light border border-oat-200 hover:border-pine/30 transition-all">
+          <span class="w-9 h-9 rounded-xl bg-blue-600 text-white font-bold text-xs flex items-center justify-center shrink-0">高德</span>
+          <div class="min-w-0">
+            <span class="block text-sm font-semibold text-charcoal-900">高德地图</span>
+            <span class="block text-[11px] text-charcoal-400">国内步行/驾车推荐</span>
+          </div>
+        </a>
+        <a id="navBaiduLink" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 p-3.5 rounded-2xl bg-oat-50 hover:bg-pine-light border border-oat-200 hover:border-pine/30 transition-all">
+          <span class="w-9 h-9 rounded-xl bg-sky-600 text-white font-bold text-xs flex items-center justify-center shrink-0">百度</span>
+          <div class="min-w-0">
+            <span class="block text-sm font-semibold text-charcoal-900">百度地图</span>
+            <span class="block text-[11px] text-charcoal-400">公交/地铁精准查询</span>
+          </div>
+        </a>
+        <a id="navAppleLink" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 p-3.5 rounded-2xl bg-oat-50 hover:bg-pine-light border border-oat-200 hover:border-pine/30 transition-all">
+          <span class="w-9 h-9 rounded-xl bg-charcoal-900 text-white font-bold text-xs flex items-center justify-center shrink-0">Apple</span>
+          <div class="min-w-0">
+            <span class="block text-sm font-semibold text-charcoal-900">Apple 地图</span>
+            <span class="block text-[11px] text-charcoal-400">iOS 原生直达</span>
+          </div>
+        </a>
+        <a id="navGoogleLink" href="#" target="_blank" rel="noopener noreferrer" class="flex items-center gap-3 p-3.5 rounded-2xl bg-oat-50 hover:bg-pine-light border border-oat-200 hover:border-pine/30 transition-all">
+          <span class="w-9 h-9 rounded-xl bg-emerald-600 text-white font-bold text-xs flex items-center justify-center shrink-0">G</span>
+          <div class="min-w-0">
+            <span class="block text-sm font-semibold text-charcoal-900">Google Maps</span>
+            <span class="block text-[11px] text-charcoal-400">国际通用路线</span>
+          </div>
+        </a>
+      </div>
+
+      <button type="button" onclick="copyCurrentAddress(); closeModal('navModal');" class="w-full py-3 rounded-2xl bg-oat-100 hover:bg-oat-200 text-charcoal-900 text-xs font-semibold transition-colors">
+        仅复制门店地址到剪贴板
+      </button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       弹窗 2：门店分享链接与二维码名片
+  ========================================================== -->
+  <div id="shareModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/45 backdrop-blur-xs" onclick="if(event.target===this) closeModal('shareModal')">
+    <div class="w-full max-w-sm bg-white rounded-[28px] border border-oat-300 shadow-glass p-6 space-y-5 text-center">
+      <div class="flex items-center justify-between text-left">
+        <div>
+          <span class="text-[11px] font-semibold uppercase tracking-widest text-amberwarm">Store Card</span>
+          <h3 id="shareStoreTitle" class="font-serif text-lg font-semibold text-charcoal-900 mt-0.5 truncate max-w-[230px]">门店二维码名片</h3>
+        </div>
+        <button type="button" onclick="closeModal('shareModal')" class="w-8 h-8 rounded-full bg-oat-100 hover:bg-oat-200 flex items-center justify-center text-charcoal-500">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- 二维码画布容器 -->
+      <div class="p-5 rounded-3xl bg-oat-50 border border-oat-200 flex flex-col items-center justify-center gap-3">
+        <div id="qrCodeBox" class="p-3 bg-white rounded-2xl shadow-xs border border-oat-200 min-h-[176px] min-w-[176px] flex items-center justify-center"></div>
+        <p id="shareHintText" class="text-[11px] text-charcoal-500 leading-relaxed">扫码即可直达该门店路线指引页</p>
+      </div>
+
+      <!-- 直达链接输入框 + 复制按钮 -->
+      <div class="flex items-center gap-2 p-1.5 rounded-2xl bg-oat-100 border border-oat-200">
+        <input id="shareUrlInput" type="text" readonly class="flex-1 bg-transparent px-2.5 text-xs text-charcoal-700 outline-none truncate">
+        <button type="button" onclick="copyText(document.getElementById('shareUrlInput').value, '门店直达链接已复制')" class="shrink-0 px-3.5 py-2 rounded-xl bg-pine text-white text-xs font-semibold hover:bg-pine-dark transition-colors">
+          复制链接
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       弹窗 3：Supabase 云端托管配置向导
+  ========================================================== -->
+  <div id="cloudModal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-xs" onclick="if(event.target===this) closeModal('cloudModal')">
+    <div class="w-full max-w-xl max-h-[90vh] overflow-y-auto custom-scroll bg-white rounded-[28px] border border-oat-300 shadow-glass p-6 space-y-5">
+      <div class="flex items-start justify-between gap-3">
+        <div>
+          <span class="inline-flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-widest text-pine">
+            <span class="w-2 h-2 rounded-full bg-emerald-500"></span>
+            Supabase Cloud Hosting
+          </span>
+          <h3 class="font-serif text-xl font-semibold text-charcoal-900 mt-1">Supabase 云端数据库与图床配置</h3>
+          <p class="text-xs text-charcoal-500 mt-1">配置完成后，所有商家资料和实景照片将自动储存至你的 Supabase 云托管实例。</p>
+        </div>
+        <button type="button" onclick="closeModal('cloudModal')" class="w-8 h-8 rounded-full bg-oat-100 hover:bg-oat-200 flex items-center justify-center text-charcoal-500 shrink-0">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+
+      <!-- 连接诊断反馈横幅 -->
+      <div id="cloudTestBanner" class="hidden rounded-2xl px-4 py-3 text-xs leading-relaxed border"></div>
+
+      <!-- Supabase 凭证表单 -->
+      <div class="space-y-3.5">
+        <div>
+          <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">Supabase Project URL <span class="text-amberwarm">*</span></label>
+          <input id="inputSupabaseUrl" type="url" placeholder="https://xxxxxxxxxxxx.supabase.co" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-300 focus:border-pine focus:bg-white text-sm outline-none transition-all">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">Supabase Anon Public Key <span class="text-amberwarm">*</span></label>
+          <input id="inputSupabaseKey" type="password" placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..." class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-300 focus:border-pine focus:bg-white text-sm outline-none transition-all">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">Storage 图片存储桶名称（可选，默认 store-images）</label>
+          <input id="inputSupabaseBucket" type="text" value="store-images" placeholder="store-images" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-300 focus:border-pine focus:bg-white text-sm outline-none transition-all">
+          <p class="text-[11px] text-charcoal-400 mt-1">上传实景图时优先存入此公共存储桶；若未创建存储桶，系统将自动无缝降级为压缩图片直接存入数据库。</p>
+        </div>
+      </div>
+
+      <!-- 操作按钮组 -->
+      <div class="flex flex-wrap items-center gap-2.5 pt-1">
+        <button id="btnSaveCloud" type="button" onclick="saveAndConnectSupabase()" class="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-pine text-white text-xs sm:text-sm font-semibold hover:bg-pine-dark transition-all">
+          保存并连接云端
+        </button>
+        <button id="btnTestCloud" type="button" onclick="testSupabaseConnection()" class="px-4 py-2.5 rounded-xl bg-oat-100 hover:bg-oat-200 text-charcoal-900 text-xs sm:text-sm font-semibold transition-all">
+          测试连接
+        </button>
+        <button type="button" onclick="disconnectSupabase()" class="ml-auto px-3 py-2.5 rounded-xl text-xs font-medium text-charcoal-400 hover:text-red-600 transition-colors">
+          切换回本地模式
+        </button>
+      </div>
+
+      <!-- 一键复制建表 SQL 折叠区 -->
+      <div class="rounded-2xl border border-oat-300 bg-oat-50 overflow-hidden">
+        <button type="button" onclick="toggleSqlPanel()" class="w-full px-4 py-3 flex items-center justify-between text-left hover:bg-oat-100/80 transition-colors">
+          <div class="flex items-center gap-2">
+            <span class="px-2 py-0.5 rounded-md bg-pine text-white text-[10px] font-bold">SQL</span>
+            <span class="text-xs font-semibold text-charcoal-900">首次使用？展开一键复制 Supabase 建表与权限脚本</span>
+          </div>
+          <svg id="sqlChevron" class="w-4 h-4 text-charcoal-500 transition-transform" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+        </button>
+        <div id="sqlPanelBody" class="hidden border-t border-oat-200 p-4 space-y-2.5">
+          <div class="flex items-center justify-between gap-2">
+            <p class="text-[11px] text-charcoal-500">粘贴至 Supabase 控制台 → SQL Editor → 点击 Run 即可完成初始化。</p>
+            <button type="button" onclick="copySetupSql()" class="shrink-0 px-3 py-1.5 rounded-lg bg-charcoal-900 text-white text-[11px] font-semibold hover:bg-pine transition-colors">
+              一键复制 SQL
+            </button>
+          </div>
+          <pre id="setupSqlCode" class="p-3 rounded-xl bg-charcoal-900 text-oat-100 text-[11px] leading-relaxed overflow-x-auto custom-scroll font-mono"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       侧边抽屉：商家信息上传与编辑工作室（Slide-over Studio Drawer）
+  ========================================================== -->
+  <div id="studioDrawer" class="hidden fixed inset-0 z-50 flex justify-end bg-charcoal-900/45 backdrop-blur-xs" onclick="if(event.target===this) closeStudioDrawer()">
+    <div class="drawer-panel w-full max-w-2xl h-full bg-oat-50 shadow-drawer flex flex-col">
+
+      <!-- 抽屉顶部栏 -->
+      <div class="px-5 sm:px-6 py-4 bg-white border-b border-oat-200 flex items-center justify-between gap-3 shrink-0">
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="studioModeBadge" class="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-pine-light text-pine">编辑当前门店</span>
+            <span id="studioStorageHint" class="text-[11px] text-charcoal-400">保存至本地演示存储</span>
+          </div>
+          <h3 id="studioDrawerTitle" class="font-serif text-lg font-semibold text-charcoal-900 mt-1">商家信息上传工作室</h3>
+        </div>
+        <div class="flex items-center gap-2">
+          <button id="studioSwitchCreateBtn" type="button" onclick="switchStudioMode('create')" class="hidden px-3 py-1.5 rounded-full text-xs font-semibold bg-oat-100 hover:bg-amberwarm-light hover:text-amberwarm-dark text-charcoal-700 transition-colors">
+            + 改为新增商家
+          </button>
+          <button type="button" onclick="closeStudioDrawer()" class="w-9 h-9 rounded-full bg-oat-100 hover:bg-oat-200 flex items-center justify-center text-charcoal-700">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- 分栏标签导航 -->
+      <div class="px-5 sm:px-6 pt-3 pb-2 bg-white border-b border-oat-200 shrink-0">
+        <div class="grid grid-cols-4 gap-1 p-1 rounded-2xl bg-oat-100">
+          <button type="button" data-studio-tab="basic" onclick="switchStudioTab('basic')" class="studio-tab-btn py-2 rounded-xl text-xs font-semibold bg-white text-pine shadow-xs transition-all">1. 基础信息</button>
+          <button type="button" data-studio-tab="media" onclick="switchStudioTab('media')" class="studio-tab-btn py-2 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-charcoal-900 transition-all">2. 实景上传</button>
+          <button type="button" data-studio-tab="routes" onclick="switchStudioTab('routes')" class="studio-tab-btn py-2 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-charcoal-900 transition-all">3. 路线指引</button>
+          <button type="button" data-studio-tab="extras" onclick="switchStudioTab('extras')" class="studio-tab-btn py-2 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-charcoal-900 transition-all">4. 设施/FAQ</button>
+        </div>
+      </div>
+
+      <!-- 表单滚动内容区 -->
+      <div class="flex-1 overflow-y-auto custom-scroll p-5 sm:p-6 space-y-5">
+
+        <!-- 标签页 1：基础信息 -->
+        <div id="studioTab-basic" class="studio-tab-panel space-y-4">
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">商家 / 门店名称 <span class="text-amberwarm">*</span></label>
+              <input id="formName" type="text" placeholder="例如：拾光手作咖啡馆 · 静安巷店" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">经营品类标签</label>
+              <input id="formCategory" type="text" placeholder="例如：精品咖啡 · 手作烘焙" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">联系电话</label>
+              <input id="formPhone" type="text" placeholder="例如：021-6288-9412" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">品牌副标题 / Slogan</label>
+              <input id="formTagline" type="text" placeholder="一句打动客人的空间描述或寻路提示" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+            <div class="sm:col-span-2">
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">门店详细地址 <span class="text-amberwarm">*</span></label>
+              <textarea id="formAddress" rows="2" placeholder="省市区街道门牌号及楼层房间号" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none resize-none"></textarea>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">营业开始时间</label>
+              <input id="formOpenTime" type="time" value="08:30" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1.5">营业结束时间</label>
+              <input id="formCloseTime" type="time" value="21:30" class="w-full px-3.5 py-2.5 rounded-xl bg-white border border-oat-300 focus:border-pine text-sm outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- 标签页 2：实景图上传（自动压缩 + Supabase Storage 优先上传） -->
+        <div id="studioTab-media" class="studio-tab-panel hidden space-y-5">
+          <!-- 封面图上传卡片 -->
+          <div class="p-4 rounded-2xl bg-white border border-oat-300 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-bold text-charcoal-900">门店视觉封面大图</h4>
+                <p class="text-[11px] text-charcoal-400">显示在页面顶部 Hero 区域，推荐横向高清实景照片（自动压缩优化）</p>
+              </div>
+              <button type="button" onclick="clearMediaImage('cover')" class="text-xs text-charcoal-400 hover:text-red-600">清除</button>
+            </div>
+
+            <div id="dropzoneCover" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event, 'cover')" onclick="document.getElementById('fileInputCover').click()" class="relative rounded-2xl border-2 border-dashed border-oat-300 hover:border-pine bg-oat-50 p-4 text-center cursor-pointer transition-all overflow-hidden">
+              <input id="fileInputCover" type="file" accept="image/*" class="hidden" onchange="handleImageFileSelect(event, 'cover')">
+              <img id="previewCoverImg" alt="封面图预览" class="hidden w-full h-40 object-cover rounded-xl mb-2">
+              <div id="placeholderCover" class="py-5 space-y-1.5">
+                <svg class="w-7 h-7 text-pine mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                <p class="text-xs font-semibold text-charcoal-700">点击选择或拖拽封面实景图到此处</p>
+                <p class="text-[11px] text-charcoal-400">支持 JPG / PNG / WebP，自动压缩至轻量体积</p>
+              </div>
+            </div>
+            <input id="formCoverUrl" type="url" oninput="syncMediaPreviewFromUrl('cover')" placeholder="或直接粘贴封面图片 URL（https://...）" class="w-full px-3 py-2 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-xs outline-none">
+          </div>
+
+          <!-- 防迷路门头/转角实景图上传卡片 -->
+          <div class="p-4 rounded-2xl bg-white border border-oat-300 space-y-3">
+            <div class="flex items-center justify-between">
+              <div>
+                <h4 class="text-sm font-bold text-charcoal-900">防迷路门头 / 转角地标实景图</h4>
+                <p class="text-[11px] text-charcoal-400">帮助客人快速认出门头外观或关键拐角地标</p>
+              </div>
+              <button type="button" onclick="clearMediaImage('landmark')" class="text-xs text-charcoal-400 hover:text-red-600">清除</button>
+            </div>
+
+            <div id="dropzoneLandmark" ondragover="handleDragOver(event)" ondragleave="handleDragLeave(event)" ondrop="handleDropImage(event, 'landmark')" onclick="document.getElementById('fileInputLandmark').click()" class="relative rounded-2xl border-2 border-dashed border-oat-300 hover:border-amberwarm bg-oat-50 p-4 text-center cursor-pointer transition-all overflow-hidden">
+              <input id="fileInputLandmark" type="file" accept="image/*" class="hidden" onchange="handleImageFileSelect(event, 'landmark')">
+              <img id="previewLandmarkImg" alt="地标图预览" class="hidden w-full h-40 object-cover rounded-xl mb-2">
+              <div id="placeholderLandmark" class="py-5 space-y-1.5">
+                <svg class="w-7 h-7 text-amberwarm mx-auto" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                <p class="text-xs font-semibold text-charcoal-700">点击选择或拖拽门头/转角照片到此处</p>
+                <p class="text-[11px] text-charcoal-400">未上传时将自动展示优雅的建筑门头线稿插图</p>
+              </div>
+            </div>
+            <input id="formLandmarkUrl" type="url" oninput="syncMediaPreviewFromUrl('landmark')" placeholder="或直接粘贴地标图片 URL（https://...）" class="w-full px-3 py-2 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-xs outline-none">
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1">门头视觉确认说明</label>
+              <input id="formLandmarkCaption" type="text" placeholder="例如：沿街原木拱门与焦糖色布艺雨棚清晰可见，推门即入。" class="w-full px-3 py-2 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-xs outline-none">
+            </div>
+          </div>
+        </div>
+
+        <!-- 标签页 3：详细交通路线指引 -->
+        <div id="studioTab-routes" class="studio-tab-panel hidden space-y-4">
+          <!-- 切换正在编辑的交通方式 -->
+          <div class="grid grid-cols-4 gap-1.5 p-1 rounded-2xl bg-white border border-oat-200">
+            <button type="button" data-edit-route="subway" onclick="switchEditRouteMode('subway')" class="edit-route-btn py-2 rounded-xl text-xs font-semibold bg-pine text-white">地铁</button>
+            <button type="button" data-edit-route="car" onclick="switchEditRouteMode('car')" class="edit-route-btn py-2 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-oat-100">自驾停车</button>
+            <button type="button" data-edit-route="bus" onclick="switchEditRouteMode('bus')" class="edit-route-btn py-2 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-oat-100">公交</button>
+            <button type="button" data-edit-route="taxi" onclick="switchEditRouteMode('taxi')" class="edit-route-btn py-2 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-oat-100">打车/骑行</button>
+          </div>
+
+          <div class="p-4 rounded-2xl bg-white border border-oat-300 space-y-3.5">
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1">路线标题（站名 / 车库名 / 下车点）</label>
+              <input id="routeEditTitle" type="text" oninput="syncCurrentEditRoute()" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-sm outline-none">
+            </div>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-xs font-semibold text-charcoal-700 mb-1">预计耗时 / 距离</label>
+                <input id="routeEditDuration" type="text" oninput="syncCurrentEditRoute()" placeholder="如：步行 5 分钟 · 350米" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-sm outline-none">
+              </div>
+              <div>
+                <label class="block text-xs font-semibold text-charcoal-700 mb-1">地图短标牌文字</label>
+                <input id="routeEditMapLabel" type="text" oninput="syncCurrentEditRoute()" placeholder="如：静安寺站4号口" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-sm outline-none">
+              </div>
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1">关键认路地标 / 费用贴士</label>
+              <input id="routeEditLandmark" type="text" oninput="syncCurrentEditRoute()" class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-sm outline-none">
+            </div>
+            <div>
+              <label class="block text-xs font-semibold text-charcoal-700 mb-1">分步指引说明（每行代表一步）</label>
+              <textarea id="routeEditSteps" rows="5" oninput="syncCurrentEditRoute()" placeholder="每行输入一步清晰指引..." class="w-full px-3.5 py-2.5 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-sm outline-none leading-relaxed"></textarea>
+            </div>
+          </div>
+        </div>
+
+        <!-- 标签页 4：设施服务标签与常见问题 FAQ -->
+        <div id="studioTab-extras" class="studio-tab-panel hidden space-y-5">
+          <!-- 设施多选与自定义添加 -->
+          <div class="p-4 rounded-2xl bg-white border border-oat-300 space-y-3">
+            <h4 class="text-sm font-bold text-charcoal-900">门店设施与服务标签</h4>
+            <div id="studioFacilityChips" class="flex flex-wrap gap-2">
+              <!-- JS 动态渲染可选胶囊 -->
+            </div>
+            <div class="flex items-center gap-2 pt-1">
+              <input id="customFacilityInput" type="text" placeholder="输入自定义设施标签，如：露天花园" onkeydown="if(event.key==='Enter'){event.preventDefault(); addCustomFacility();}" class="flex-1 px-3 py-2 rounded-xl bg-oat-50 border border-oat-200 focus:border-pine text-xs outline-none">
+              <button type="button" onclick="addCustomFacility()" class="px-3.5 py-2 rounded-xl bg-pine-light text-pine hover:bg-pine hover:text-white text-xs font-semibold transition-colors">
+                添加标签
+              </button>
+            </div>
+          </div>
+
+          <!-- FAQ 动态管理 -->
+          <div class="p-4 rounded-2xl bg-white border border-oat-300 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-sm font-bold text-charcoal-900">常见问题 FAQ</h4>
+              <button type="button" onclick="addFaqDraftRow()" class="px-3 py-1.5 rounded-full bg-amberwarm-light text-amberwarm-dark hover:bg-amberwarm hover:text-white text-xs font-semibold transition-colors">
+                + 添加一条问答
+              </button>
+            </div>
+            <div id="studioFaqList" class="space-y-3">
+              <!-- JS 动态渲染 FAQ 编辑行 -->
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 抽屉底部提交栏 -->
+      <div class="px-5 sm:px-6 py-4 bg-white border-t border-oat-200 flex items-center justify-between gap-3 shrink-0">
+        <button id="btnDeleteStore" type="button" onclick="requestDeleteCurrentStore()" class="px-3.5 py-2.5 rounded-xl text-xs font-semibold text-red-600 hover:bg-red-50 transition-colors">
+          删除门店
+        </button>
+        <div class="flex items-center gap-2.5 ml-auto">
+          <button type="button" onclick="closeStudioDrawer()" class="px-4 py-2.5 rounded-xl bg-oat-100 hover:bg-oat-200 text-charcoal-700 text-xs sm:text-sm font-semibold transition-colors">
+            取消
+          </button>
+          <button id="btnSaveStore" type="button" onclick="saveStoreFromStudio()" class="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-pine hover:bg-pine-dark text-white text-xs sm:text-sm font-semibold shadow-sm transition-all">
+            <span id="btnSaveStoreSpinner" class="hidden w-3.5 h-3.5 border-2 border-white/40 border-t-white rounded-full animate-spin"></span>
+            <span id="btnSaveStoreLabel">保存到本地</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       弹窗 4：自定义二次确认弹窗（替代浏览器原生 confirm）
+  ========================================================== -->
+  <div id="confirmModal" class="hidden fixed inset-0 z-[60] flex items-center justify-center p-4 bg-charcoal-900/50 backdrop-blur-xs" onclick="if(event.target===this) closeModal('confirmModal')">
+    <div class="w-full max-w-sm bg-white rounded-[24px] border border-oat-300 shadow-glass p-6 space-y-4">
+      <h3 id="confirmTitle" class="font-serif text-lg font-semibold text-charcoal-900">确认删除门店？</h3>
+      <p id="confirmMessage" class="text-xs text-charcoal-500 leading-relaxed">删除后将无法恢复该门店信息。</p>
+      <div class="flex items-center justify-end gap-2.5 pt-2">
+        <button type="button" onclick="closeModal('confirmModal')" class="px-4 py-2 rounded-xl bg-oat-100 hover:bg-oat-200 text-charcoal-700 text-xs font-semibold">取消</button>
+        <button id="confirmOkBtn" type="button" class="px-4 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold">确认删除</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       弹窗 5：实景大图 Lightbox 预览
+  ========================================================== -->
+  <div id="lightboxModal" class="hidden fixed inset-0 z-[65] flex flex-col items-center justify-center p-4 bg-charcoal-900/90 backdrop-blur-md" onclick="closeModal('lightboxModal')">
+    <div class="max-w-4xl w-full flex flex-col items-center gap-3" onclick="event.stopPropagation()">
+      <div class="w-full flex items-center justify-between text-white">
+        <span id="lightboxCaption" class="text-xs sm:text-sm font-medium text-oat-100 truncate"></span>
+        <button type="button" onclick="closeModal('lightboxModal')" class="w-9 h-9 rounded-full bg-white/15 hover:bg-white/25 flex items-center justify-center text-white">
+          <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+        </button>
+      </div>
+      <img id="lightboxImg" alt="放大预览图" class="max-h-[78vh] w-auto max-w-full rounded-2xl shadow-2xl object-contain">
+    </div>
+  </div>
+
+  <!-- =========================================================
+       全局 Toast 轻提示容器
+  ========================================================== -->
+  <div id="toastContainer" class="fixed bottom-20 sm:bottom-6 left-1/2 -translate-x-1/2 z-[70] flex flex-col items-center gap-2 pointer-events-none w-max max-w-[92vw]"></div>
+
+  <!-- =========================================================
+       核心应用逻辑：Supabase 云端托管 + 交互式街区地图 + 编辑工作室
+  ========================================================== -->
+  <script>
+    // =========================================================================
+    // 1. 常量与内置高质量演示门店数据
+    // =========================================================================
+    const STORAGE_KEYS = {
+      LOCAL_STORES: 'wayfinder_local_stores_v2',
+      SUPABASE_CFG: 'wayfinder_supabase_cfg_v2',
+    };
+
+    const PRESET_FACILITIES = [
+      '免费高速 Wi-Fi',
+      '充足电源插座',
+      '宠物友好空间',
+      '无障碍平缓通道',
+      '独立静音包间',
+      '对外洗手间',
+      '母婴友好设施',
+      '免费停车券',
+      '外摆花园座位',
+      '支持提前订座',
+    ];
+
+    // 完整的 Supabase 一键建表与公共 Storage 权限 SQL 脚本
+    const SUPABASE_SETUP_SQL = `-- 1. 创建 stores 商家信息表
+create table if not exists public.stores (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  category text default '生活方式空间',
+  tagline text default '',
+  address text not null,
+  phone text default '',
+  open_time text default '09:00',
+  close_time text default '21:00',
+  cover_image text default '',
+  landmark_image text default '',
+  landmark_caption text default '',
+  routes_json jsonb not null default '{}'::jsonb,
+  facilities_json jsonb not null default '[]'::jsonb,
+  faqs_json jsonb not null default '[]'::jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+-- 2. 开启 RLS 并允许公开读取与上传编辑（可根据业务自行收紧为登录用户）
+alter table public.stores enable row level security;
+
+drop policy if exists "Allow public read stores" on public.stores;
+create policy "Allow public read stores" on public.stores
+  for select using (true);
+
+drop policy if exists "Allow public insert stores" on public.stores;
+create policy "Allow public insert stores" on public.stores
+  for insert with check (true);
+
+drop policy if exists "Allow public update stores" on public.stores;
+create policy "Allow public update stores" on public.stores
+  for update using (true) with check (true);
+
+drop policy if exists "Allow public delete stores" on public.stores;
+create policy "Allow public delete stores" on public.stores
+  for delete using (true);
+
+-- 3. 创建公共图片存储桶 store-images 并开放读写权限
+insert into storage.buckets (id, name, public)
+values ('store-images', 'store-images', true)
+on conflict (id) do nothing;
+
+drop policy if exists "Public read store-images" on storage.objects;
+create policy "Public read store-images" on storage.objects
+  for select using (bucket_id = 'store-images');
+
+drop policy if exists "Public upload store-images" on storage.objects;
+create policy "Public upload store-images" on storage.objects
+  for insert with check (bucket_id = 'store-images');`;
+
+    // 内置 2 家高品质演示门店（本地模式自动加载，也可一键导入 Supabase）
+    const DEMO_STORES = [
+      {
+        id: 'demo-shiguang-coffee',
+        _origin: 'local',
+        name: '拾光手作咖啡馆 · 静安巷店',
+        category: '精品咖啡 · 手作烘焙',
+        tagline: '藏于梧桐老巷的慢节奏手冲与烘焙空间 · 顺着街角暖光轻松找到我们',
+        address: '上海市静安区静安巷 88 号拾光广场 1 层 L108 室',
+        phone: '021-6288-9412',
+        open_time: '08:30',
+        close_time: '21:30',
+        cover_image: '',
+        landmark_image: '',
+        landmark_caption: '沿街原木拱门与焦糖色布艺雨棚清晰可见，门廊两侧有大型龟背竹绿植，推门即入。',
+        routes_json: {
+          subway: {
+            title: '2号线 / 7号线 静安寺站 · 4号口',
+            duration: '步行 5 分钟 · 350米',
+            mapLabel: '静安寺站 4号口',
+            landmark: '认准转角红砖老邮局，在此路口左转步入静安巷',
+            steps: [
+              '从 4 号口出站，沿主干商业大道向东直行约 220 米（经过 1 个红绿灯）。',
+              '看到左手边明显的「转角红砖老邮局」后，立即左转进入慢行静安巷。',
+              '沿巷内梧桐树荫直行 120 米，右手边原木拱门与焦糖雨棚即为门店入口。',
+            ],
+          },
+          car: {
+            title: '拾光广场地下车库 · 北侧入口',
+            duration: '直梯上行 2 分钟',
+            mapLabel: '拾光广场地库入口',
+            landmark: '消费满 68 元可向前台领取 2 小时免费停车券（超出 10 元/时）',
+            steps: [
+              '高德/百度导航搜索「拾光广场地下车库北口」，由北侧林荫大道右转驶入。',
+              '推荐停放至 B2 层 A 区（靠近 3 号客梯厅，车位最充裕）。',
+              '搭乘 3 号直梯至 1 层大堂，出梯右转穿过庭院连廊即见门店。',
+            ],
+          },
+          bus: {
+            title: '静安巷东口公交站（20路 / 37路 / 71路）',
+            duration: '步行 3 分钟 · 210米',
+            mapLabel: '静安巷东口站',
+            landmark: '下车后背对主干道，向红砖建筑方向步行最快',
+            steps: [
+              '乘坐 20 路、37 路或 71 路区间至「静安巷东口」站下车。',
+              '向东步行 90 米至红砖老邮局转角处左转进入慢行巷。',
+              '继续步行约 120 米，右侧庭院一楼即是拾光手作咖啡馆。',
+            ],
+          },
+          taxi: {
+            title: '林荫大道与静安巷交叉口（推荐下车点）',
+            duration: '步行 1 分钟 · 80米',
+            mapLabel: '静安巷北口临停点',
+            landmark: '静安巷为单行慢行巷，直接停在北口可省去绕行等待',
+            steps: [
+              '打车定位建议直接选择「北侧林荫大道与静安巷交叉口」临停港湾。',
+              '下车后沿静安巷向南步行约 80 米，左手边庭院即可看到招牌。',
+              '骑行到店的朋友，门店庭院南侧设有免费单车停放架。',
+            ],
+          },
+        },
+        facilities_json: [
+          '免费高速 Wi-Fi',
+          '充足电源插座',
+          '宠物友好空间',
+          '无障碍平缓通道',
+          '免费停车券',
+          '外摆花园座位',
+        ],
+        faqs_json: [
+          {
+            q: '周末下午到店需要提前预约座位吗？',
+            a: '平日可直接到店；周末 14:00 - 17:00 为高峰时段，如需窗边景观位或 4 人以上聚会，建议提前 1 小时致电预留。',
+          },
+          {
+            q: '携带宠物进入门店有什么需要注意的吗？',
+            a: '室内外均欢迎温顺的毛孩子！建议牵好牵引绳，店内吧台提供免费宠物饮水碗与手工燕麦小饼干。',
+          },
+          {
+            q: '找不到地库电梯或雨天走错出口怎么办？',
+            a: '随时点击页面上的“联系门店”拨打电话，我们的咖啡师会为您提供实时语音指路，必要时可到巷口撑伞迎接。',
+          },
+        ],
+      },
+      {
+        id: 'demo-shanlan-tea',
+        _origin: 'local',
+        name: '山岚花艺与茶空间 · 愚园庭院店',
+        category: '东方美学茶室 · 季候花艺',
+        tagline: '一处藏在青砖院落里的东方茶饮与插花沙龙 · 闹中取静的松弛角落',
+        address: '上海市长宁区愚园巷 126 号青砖文创院 2 号楼 1 层',
+        phone: '021-5239-8801',
+        open_time: '10:00',
+        close_time: '20:30',
+        cover_image: '',
+        landmark_image: '',
+        landmark_caption: '青砖拱门入口挂有“山岚”素白布幔，穿过竹林小径即可步入茶室主厅。',
+        routes_json: {
+          subway: {
+            title: '2号线 / 11号线 江苏路站 · 7号口',
+            duration: '步行 6 分钟 · 420米',
+            mapLabel: '江苏路站 7号口',
+            landmark: '经过社区书廊后右转穿过青砖牌坊',
+            steps: [
+              '7 号口出站后沿林荫路向东前行 300 米，路过社区书廊。',
+              '看到红砖转角楼后左转进入文创院步行通道。',
+              '穿行竹林小径 100 米，2 号楼 1 层挂素白布幔处即是门店。',
+            ],
+          },
+          car: {
+            title: '青砖文创院西侧地面停车场',
+            duration: '步行 2 分钟 · 110米',
+            mapLabel: '文创院西停车场',
+            landmark: '地面车位 12 元/小时，预约花艺沙龙赠送 2 小时停车',
+            steps: [
+              '导航至「青砖文创院西侧停车场」直接驶入地面停车区。',
+              '停好车后沿指示牌向东步行穿过庭院花廊即达 2 号楼。',
+            ],
+          },
+          bus: {
+            title: '愚园路定西路站（20路 / 825路）',
+            duration: '步行 4 分钟 · 260米',
+            mapLabel: '愚园路公交站',
+            landmark: '下车即见文创院南侧指示路牌',
+            steps: [
+              '下车后沿路向北步行 150 米至愚园巷口。',
+              '进入 126 号青砖文创院，沿路标前行至 2 号楼 1 层。',
+            ],
+          },
+          taxi: {
+            title: '愚园巷 126 号文创院大门',
+            duration: '步行 1 分钟 · 60米',
+            mapLabel: '文创院正门下车点',
+            landmark: '出租车可直接停靠文创院大门口，无需绕行',
+            steps: [
+              '网约车直接定位「青砖文创院正门」。',
+              '进门后直走 60 米右转即见山岚茶空间。',
+            ],
+          },
+        },
+        facilities_json: [
+          '免费高速 Wi-Fi',
+          '独立静音包间',
+          '对外洗手间',
+          '外摆花园座位',
+          '支持提前订座',
+        ],
+        faqs_json: [
+          {
+            q: '茶室独立包间需要提前预约吗？',
+            a: '院内共有 2 间 4-6 人静音茶室，建议提前 1 天电话确认时段，免收包间费仅按茶位计费。',
+          },
+          {
+            q: '可以现场选购鲜切花束吗？',
+            a: '可以的，每日上午 10:30 鲜花到店，支持现挑现包或提前联系微信定制花礼。',
+          },
+        ],
+      },
+    ];
+
+    // =========================================================================
+    // 2. 全局应用状态
+    // =========================================================================
+    let supabaseClient = null;
+    let supabaseConfig = { url: '', key: '', bucket: 'store-images' };
+    let isCloudConnected = false;
+
+    let storesList = [];
+    let currentStore = null;
+    let activeRouteMode = 'subway';
+
+    // 编辑工作室内部草稿状态
+    let studioMode = 'edit'; // 'edit' | 'create'
+    let studioEditRouteMode = 'subway';
+    let studioDraft = null;
+    let pendingUploadFiles = { cover: null, landmark: null };
+
+    // =========================================================================
+    // 3. 图片加载容错回调（显式挂载至 window，确保永不触发 ReferenceError）
+    // =========================================================================
+    window.handleHeroImgError = function handleHeroImgError() {
+      const img = document.getElementById('heroCoverImg');
+      const art = document.getElementById('heroFallbackArt');
+      if (img) img.classList.add('hidden');
+      if (art) art.classList.remove('hidden');
+    };
+
+    window.handleLandmarkImgError = function handleLandmarkImgError() {
+      const img = document.getElementById('landmarkRealImg');
+      const svg = document.getElementById('landmarkFallbackSvg');
+      const zoom = document.getElementById('landmarkZoomBadge');
+      if (img) img.classList.add('hidden');
+      if (svg) svg.classList.remove('hidden');
+      if (zoom) zoom.classList.add('hidden');
+    };
+
+    // =========================================================================
+    // 4. 启动初始化
+    // =========================================================================
+    document.addEventListener('DOMContentLoaded', async () => {
+      // 填充建表 SQL 展示文本
+      const sqlEl = document.getElementById('setupSqlCode');
+      if (sqlEl) sqlEl.textContent = SUPABASE_SETUP_SQL;
+
+      // 点击页面空白处自动收起顶部门店下拉菜单
+      document.addEventListener('click', (e) => {
+        const menu = document.getElementById('storeDropdownMenu');
+        const btn = document.getElementById('storeSwitcherBtn');
+        if (menu && btn && !menu.contains(e.target) && !btn.contains(e.target)) {
+          closeStoreMenu();
+        }
+      });
+
+      // 加载本地保存的 Supabase 配置并尝试连接
+      loadSupabaseConfigFromStorage();
+      if (supabaseConfig.url && supabaseConfig.key) {
+        await initSupabaseAndFetchStores(false);
+      } else {
+        loadLocalStoresAndRender();
+      }
+
+      // 每分钟自动刷新一次营业状态（营业中 / 休息中）
+      setInterval(() => {
+        if (currentStore) updateBusinessStatusUI(currentStore);
+      }, 60000);
+    });
+
+    // =========================================================================
+    // 5. 数据读取与标准化（兼容 Supabase 云端 + 本地演示平滑降级）
+    // =========================================================================
+    function cloneDeep(obj) {
+      return JSON.parse(JSON.stringify(obj));
+    }
+
+    function normalizeStoreRecord(raw, origin = 'local') {
+      const fallback = DEMO_STORES[0];
+      const routes = raw.routes_json && typeof raw.routes_json === 'object' ? raw.routes_json : {};
+      const ensureRoute = (key) => ({
+        title: (routes[key] && routes[key].title) || fallback.routes_json[key].title,
+        duration: (routes[key] && routes[key].duration) || fallback.routes_json[key].duration,
+        mapLabel: (routes[key] && routes[key].mapLabel) || fallback.routes_json[key].mapLabel,
+        landmark: (routes[key] && routes[key].landmark) || fallback.routes_json[key].landmark,
+        steps: Array.isArray(routes[key]?.steps) && routes[key].steps.length > 0
+          ? routes[key].steps
+          : cloneDeep(fallback.routes_json[key].steps),
+      });
+
+      return {
+        id: raw.id || ('local-' + Date.now()),
+        _origin: origin,
+        name: raw.name || '未命名门店',
+        category: raw.category || '生活方式空间',
+        tagline: raw.tagline || '',
+        address: raw.address || '请在编辑工作室补充详细地址',
+        phone: raw.phone || '',
+        open_time: raw.open_time || '09:00',
+        close_time: raw.close_time || '21:00',
+        cover_image: raw.cover_image || '',
+        landmark_image: raw.landmark_image || '',
+        landmark_caption: raw.landmark_caption || '沿街清晰可见门店招牌与入口地标。',
+        routes_json: {
+          subway: ensureRoute('subway'),
+          car: ensureRoute('car'),
+          bus: ensureRoute('bus'),
+          taxi: ensureRoute('taxi'),
+        },
+        facilities_json: Array.isArray(raw.facilities_json) ? raw.facilities_json : [],
+        faqs_json: Array.isArray(raw.faqs_json) ? raw.faqs_json : [],
+      };
+    }
+
+    function getLocalStores() {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.LOCAL_STORES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed) && parsed.length > 0) {
+            return parsed.map((item) => normalizeStoreRecord(item, 'local'));
+          }
+        }
+      } catch (err) {
+        console.warn('读取本地门店失败，使用内置示例:', err);
+      }
+      return DEMO_STORES.map((s) => normalizeStoreRecord(cloneDeep(s), 'local'));
+    }
+
+    function persistLocalStores(list) {
+      try {
+        localStorage.setItem(STORAGE_KEYS.LOCAL_STORES, JSON.stringify(list));
+      } catch (err) {
+        console.warn('保存至 localStorage 失败（可能超出容量）:', err);
+        showToast('图片较大，本地缓存空间不足，建议配置 Supabase 云端托管', 'warn');
+      }
+    }
+
+    function loadLocalStoresAndRender(preferredId = null) {
+      storesList = getLocalStores();
+      selectInitialStore(preferredId);
+      updateCloudStatusUI(false);
+    }
+
+    function selectInitialStore(preferredId = null) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const queryId = preferredId || urlParams.get('id');
+      let target = null;
+      if (queryId) {
+        target = storesList.find((s) => String(s.id) === String(queryId));
+      }
+      currentStore = target || storesList[0];
+      renderCurrentStore();
+      renderStoreDropdown();
+      updateSyncBannerVisibility();
+    }
+
+    // =========================================================================
+    // 6. Supabase 云端连接、查询、写入与图片 Storage 上传
+    // =========================================================================
+    function loadSupabaseConfigFromStorage() {
+      try {
+        const saved = localStorage.getItem(STORAGE_KEYS.SUPABASE_CFG);
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          supabaseConfig = {
+            url: (parsed.url || '').trim(),
+            key: (parsed.key || '').trim(),
+            bucket: (parsed.bucket || 'store-images').trim() || 'store-images',
+          };
+        }
+      } catch (err) {
+        console.warn('读取 Supabase 配置失败:', err);
+      }
+    }
+
+    function createClientInstance(url, key) {
+      if (!window.supabase || typeof window.supabase.createClient !== 'function') {
+        throw new Error('Supabase SDK 尚未加载完成，请检查网络连接后刷新重试。');
+      }
+      return window.supabase.createClient(url, key);
+    }
+
+    async function initSupabaseAndFetchStores(showFeedback = false, preferredId = null) {
+      try {
+        supabaseClient = createClientInstance(supabaseConfig.url, supabaseConfig.key);
+        const { data, error } = await supabaseClient
+          .from('stores')
+          .select('*')
+          .order('updated_at', { ascending: false });
+
+        if (error) throw error;
+
+        isCloudConnected = true;
+        updateCloudStatusUI(true);
+
+        if (Array.isArray(data) && data.length > 0) {
+          storesList = data.map((row) => normalizeStoreRecord(row, 'cloud'));
+          selectInitialStore(preferredId);
+          if (showFeedback) showToast(`已连接 Supabase，成功加载 ${storesList.length} 家云端门店`, 'success');
+        } else {
+          // 云端连接成功但表内暂无记录：展示本地演示并提示一键导入
+          storesList = getLocalStores();
+          selectInitialStore(preferredId);
+          if (showFeedback) showToast('Supabase 连接成功！当前云端表为空，可一键同步示例门店', 'success');
+        }
+      } catch (err) {
+        console.error('Supabase 连接或查询失败:', err);
+        isCloudConnected = false;
+        supabaseClient = null;
+        loadLocalStoresAndRender();
+        if (showFeedback) {
+          showCloudBanner(`连接失败：${err.message || '请核对 URL / Anon Key 及是否已执行建表 SQL'}`, 'error');
+        }
+      }
+    }
+
+    function openCloudModal() {
+      document.getElementById('inputSupabaseUrl').value = supabaseConfig.url || '';
+      document.getElementById('inputSupabaseKey').value = supabaseConfig.key || '';
+      document.getElementById('inputSupabaseBucket').value = supabaseConfig.bucket || 'store-images';
+      const banner = document.getElementById('cloudTestBanner');
+      if (isCloudConnected) {
+        showCloudBanner('当前已成功连接至 Supabase 云托管，商家增删改查均实时同步至云端。', 'success');
+      } else {
+        banner.classList.add('hidden');
+      }
+      openModal('cloudModal');
+    }
+
+    function showCloudBanner(message, type = 'info') {
+      const el = document.getElementById('cloudTestBanner');
+      el.classList.remove('hidden', 'bg-pine-light', 'border-pine/30', 'text-pine-dark', 'bg-red-50', 'border-red-200', 'text-red-700', 'bg-amberwarm-light', 'border-amberwarm/30', 'text-amberwarm-dark');
+      if (type === 'success') {
+        el.classList.add('bg-pine-light', 'border-pine/30', 'text-pine-dark');
+      } else if (type === 'error') {
+        el.classList.add('bg-red-50', 'border-red-200', 'text-red-700');
+      } else {
+        el.classList.add('bg-amberwarm-light', 'border-amberwarm/30', 'text-amberwarm-dark');
+      }
+      el.textContent = message;
+    }
+
+    async function testSupabaseConnection() {
+      const url = document.getElementById('inputSupabaseUrl').value.trim();
+      const key = document.getElementById('inputSupabaseKey').value.trim();
+      if (!url || !key) {
+        showCloudBanner('请先完整填写 Supabase Project URL 和 Anon Public Key。', 'error');
+        return;
+      }
+      const btn = document.getElementById('btnTestCloud');
+      btn.disabled = true;
+      btn.textContent = '检测中...';
+      try {
+        const tempClient = createClientInstance(url, key);
+        const { count, error } = await tempClient
+          .from('stores')
+          .select('*', { count: 'exact', head: true });
+        if (error) throw error;
+        showCloudBanner(`连通性测试通过！已检测到 stores 表（当前共有 ${count ?? 0} 条云端门店记录）。`, 'success');
+      } catch (err) {
+        const msg = err.message || String(err);
+        const hint = msg.includes('does not exist') || msg.includes('42P01')
+          ? '（检测到尚未创建 stores 表，请展开下方 SQL 脚本到 Supabase SQL Editor 执行一次即可）'
+          : '';
+        showCloudBanner(`测试未通过：${msg} ${hint}`, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '测试连接';
+      }
+    }
+
+    async function saveAndConnectSupabase() {
+      const url = document.getElementById('inputSupabaseUrl').value.trim();
+      const key = document.getElementById('inputSupabaseKey').value.trim();
+      const bucket = document.getElementById('inputSupabaseBucket').value.trim() || 'store-images';
+
+      if (!url || !key) {
+        showCloudBanner('请填写有效的 Supabase Project URL 与 Anon Public Key。', 'error');
+        return;
+      }
+
+      const btn = document.getElementById('btnSaveCloud');
+      btn.disabled = true;
+      btn.textContent = '正在连接...';
+
+      supabaseConfig = { url, key, bucket };
+      try {
+        localStorage.setItem(STORAGE_KEYS.SUPABASE_CFG, JSON.stringify(supabaseConfig));
+      } catch (e) {}
+
+      await initSupabaseAndFetchStores(true);
+
+      btn.disabled = false;
+      btn.textContent = '保存并连接云端';
+      if (isCloudConnected) {
+        closeModal('cloudModal');
+      }
+    }
+
+    function disconnectSupabase() {
+      supabaseClient = null;
+      isCloudConnected = false;
+      supabaseConfig = { url: '', key: '', bucket: 'store-images' };
+      try {
+        localStorage.removeItem(STORAGE_KEYS.SUPABASE_CFG);
+      } catch (e) {}
+      loadLocalStoresAndRender();
+      closeModal('cloudModal');
+      showToast('已切换回本地演示模式', 'info');
+    }
+
+    function toggleSqlPanel() {
+      const body = document.getElementById('sqlPanelBody');
+      const chev = document.getElementById('sqlChevron');
+      const isHidden = body.classList.toggle('hidden');
+      chev.style.transform = isHidden ? '' : 'rotate(180deg)';
+    }
+
+    function copySetupSql() {
+      copyText(SUPABASE_SETUP_SQL, '建表与 Storage 权限 SQL 已复制');
+    }
+
+    function updateCloudStatusUI(connected) {
+      const dot = document.getElementById('cloudStatusDot');
+      const text = document.getElementById('cloudStatusText');
+      const mDot = document.getElementById('mobileCloudDot');
+      const mBarDot = document.getElementById('mobileBarCloudDot');
+      const mBarText = document.getElementById('mobileBarCloudText');
+
+      if (connected) {
+        dot.className = 'w-2 h-2 rounded-full bg-emerald-500 dot-breathe';
+        text.textContent = 'Supabase 云端已同步';
+        mDot.className = 'md:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-emerald-500 ring-2 ring-oat-100';
+        mBarDot.className = 'w-2 h-2 rounded-full bg-emerald-500 dot-breathe shrink-0';
+        mBarText.textContent = 'Supabase 云端托管已连接 · 实时同步';
+      } else {
+        dot.className = 'w-2 h-2 rounded-full bg-amberwarm';
+        text.textContent = '本地演示模式 · 配置 Supabase';
+        mDot.className = 'md:hidden absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-amberwarm ring-2 ring-oat-100';
+        mBarDot.className = 'w-2 h-2 rounded-full bg-amberwarm shrink-0';
+        mBarText.textContent = '本地演示模式 · 点击配置 Supabase 云托管';
+      }
+      updateSyncBannerVisibility();
+    }
+
+    function updateSyncBannerVisibility() {
+      const banner = document.getElementById('syncBanner');
+      if (!banner) return;
+      if (isCloudConnected && currentStore && currentStore._origin === 'local') {
+        banner.classList.remove('hidden');
+      } else {
+        banner.classList.add('hidden');
+      }
+    }
+
+    // 一键同步当前本地门店到 Supabase 云端
+    async function syncCurrentLocalToCloud() {
+      if (!isCloudConnected || !supabaseClient || !currentStore) return;
+      const btn = document.getElementById('syncCurrentBtn');
+      btn.disabled = true;
+      btn.textContent = '正在同步...';
+      try {
+        const payload = buildCloudPayload(currentStore);
+        const { data, error } = await supabaseClient.from('stores').insert([payload]).select().single();
+        if (error) throw error;
+        showToast('当前门店已成功上传至 Supabase 云端', 'success');
+        await initSupabaseAndFetchStores(false, data.id);
+      } catch (err) {
+        showToast('同步失败：' + (err.message || '请检查表结构权限'), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '同步当前门店到云端';
+      }
+    }
+
+    // 一键将全部内置示例门店导入 Supabase
+    async function seedDemoStoresToCloud() {
+      if (!isCloudConnected || !supabaseClient) return;
+      const btn = document.getElementById('seedAllCloudBtn');
+      btn.disabled = true;
+      btn.textContent = '导入中...';
+      try {
+        const payloads = getLocalStores().map((s) => buildCloudPayload(s));
+        const { data, error } = await supabaseClient.from('stores').insert(payloads).select();
+        if (error) throw error;
+        showToast(`已成功导入 ${data.length} 家门店至 Supabase 云端`, 'success');
+        await initSupabaseAndFetchStores(false, data[0]?.id);
+      } catch (err) {
+        showToast('导入失败：' + (err.message || '请检查 RLS 策略'), 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '导入全部示例';
+      }
+    }
+
+    function buildCloudPayload(store) {
+      return {
+        name: store.name,
+        category: store.category,
+        tagline: store.tagline,
+        address: store.address,
+        phone: store.phone,
+        open_time: store.open_time,
+        close_time: store.close_time,
+        cover_image: store.cover_image || '',
+        landmark_image: store.landmark_image || '',
+        landmark_caption: store.landmark_caption || '',
+        routes_json: store.routes_json,
+        facilities_json: store.facilities_json,
+        faqs_json: store.faqs_json,
+        updated_at: new Date().toISOString(),
+      };
+    }
+
+    // =========================================================================
+    // 7. 主界面渲染逻辑（Hero、动态营业状态、路线、地图、Bento、FAQ）
+    // =========================================================================
+    function renderCurrentStore() {
+      if (!currentStore) return;
+      const s = currentStore;
+
+      // 页面标题与顶部导航
+      document.title = `${s.name} · 门店路线指引`;
+      document.getElementById('navStoreName').textContent = s.name;
+      document.getElementById('navStoreCount').textContent = `${storesList.length} 家${isCloudConnected && s._origin === 'cloud' ? '云端' : '本地'}门店可切换`;
+
+      // Hero 文本与徽章
+      document.getElementById('heroTitle').textContent = s.name;
+      document.getElementById('heroTagline').textContent = s.tagline || '欢迎光临，下方为您准备了详尽的到店路线指引';
+      document.getElementById('heroAddressLine').textContent = s.address;
+      document.getElementById('heroCategoryBadge').textContent = s.category || '生活方式空间';
+      document.getElementById('heroOriginBadge').textContent = s._origin === 'cloud' ? 'Supabase 云端托管' : '本地演示模式';
+
+      // Hero 封面图（有图时加载真实图，无图时优雅展示艺术建筑 SVG）
+      const heroImg = document.getElementById('heroCoverImg');
+      const heroArt = document.getElementById('heroFallbackArt');
+      if (s.cover_image && s.cover_image.trim()) {
+        heroImg.src = s.cover_image;
+        heroImg.classList.remove('hidden');
+        heroArt.classList.add('hidden');
+      } else {
+        heroImg.removeAttribute('src');
+        heroImg.classList.add('hidden');
+        heroArt.classList.remove('hidden');
+      }
+
+      // 防迷路实景地标图
+      const lmImg = document.getElementById('landmarkRealImg');
+      const lmSvg = document.getElementById('landmarkFallbackSvg');
+      const lmZoom = document.getElementById('landmarkZoomBadge');
+      if (s.landmark_image && s.landmark_image.trim()) {
+        lmImg.src = s.landmark_image;
+        lmImg.classList.remove('hidden');
+        lmSvg.classList.add('hidden');
+        lmZoom.classList.remove('hidden');
+      } else {
+        lmImg.removeAttribute('src');
+        lmImg.classList.add('hidden');
+        lmSvg.classList.remove('hidden');
+        lmZoom.classList.add('hidden');
+      }
+      document.getElementById('landmarkCaption').textContent = s.landmark_caption || '沿街门头与入口标志清晰可见。';
+      document.getElementById('landmarkSvgSign').textContent = (s.name || 'STORE').slice(0, 8);
+
+      // 电话与地址绑定
+      const cleanTel = (s.phone || '').replace(/[^\d+\-]/g, '');
+      const telHref = cleanTel ? `tel:${cleanTel}` : '#';
+      document.getElementById('dockPhoneLink').href = telHref;
+      document.getElementById('mobileBottomCall').href = telHref;
+      document.getElementById('bentoPhoneText').href = telHref;
+      document.getElementById('bentoCallBtn').href = telHref;
+      document.getElementById('bentoPhoneText').textContent = s.phone || '暂未填写电话';
+      document.getElementById('bentoAddress').textContent = s.address;
+
+      // 停车与临停摘要同步自路线数据
+      document.getElementById('bentoParkingSummary').textContent =
+        `${s.routes_json.car.title}：${s.routes_json.car.landmark}`;
+      document.getElementById('bentoTaxiSummary').textContent =
+        `${s.routes_json.taxi.title}：${s.routes_json.taxi.landmark}`;
+
+      // 矢量地图动态短标牌更新
+      document.getElementById('svgLabelSubway').textContent = truncateText(s.routes_json.subway.mapLabel, 11);
+      document.getElementById('svgLabelCar').textContent = truncateText(s.routes_json.car.mapLabel, 11);
+      document.getElementById('svgLabelBus').textContent = truncateText(s.routes_json.bus.mapLabel, 10);
+      document.getElementById('svgLabelTaxi').textContent = truncateText(s.routes_json.taxi.mapLabel, 10);
+      document.getElementById('svgLabelStore').textContent = truncateText(s.name, 11);
+
+      // 页脚品牌名
+      document.getElementById('footerBrandLine').textContent = s.name;
+
+      // 更新营业状态、路线面板、设施云与 FAQ
+      updateBusinessStatusUI(s);
+      switchRouteMode(activeRouteMode);
+      renderFacilitiesCloud(s.facilities_json);
+      renderFaqAccordion(s.faqs_json);
+      updateSyncBannerVisibility();
+    }
+
+    function truncateText(str, maxLen) {
+      if (!str) return '';
+      return str.length > maxLen ? str.slice(0, maxLen) + '…' : str;
+    }
+
+    function parseMinutes(hhmm) {
+      if (!hhmm || !hhmm.includes(':')) return 0;
+      const [h, m] = hhmm.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    }
+
+    function updateBusinessStatusUI(store) {
+      const now = new Date();
+      const nowMin = now.getHours() * 60 + now.getMinutes();
+      const openMin = parseMinutes(store.open_time || '09:00');
+      const closeMin = parseMinutes(store.close_time || '21:00');
+      const isOpen = closeMin >= openMin
+        ? (nowMin >= openMin && nowMin < closeMin)
+        : (nowMin >= openMin || nowMin < closeMin);
+
+      const heroBadge = document.getElementById('heroStatusBadge');
+      const heroDot = document.getElementById('heroStatusDot');
+      const heroText = document.getElementById('heroStatusText');
+      const heroHours = document.getElementById('heroStatusHours');
+      const bentoChip = document.getElementById('bentoOpenChip');
+      const bentoRange = document.getElementById('bentoHoursRange');
+      const bentoHint = document.getElementById('bentoHoursHint');
+
+      bentoRange.textContent = `${store.open_time || '09:00'} - ${store.close_time || '21:00'}`;
+
+      if (isOpen) {
+        heroBadge.className = 'glass-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-pine shadow-sm';
+        heroDot.className = 'w-2 h-2 rounded-full bg-emerald-500 dot-breathe';
+        heroText.textContent = '营业中';
+        heroHours.textContent = `· 今日至 ${store.close_time}`;
+        bentoChip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-pine-light text-pine';
+        bentoChip.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>营业中';
+        bentoHint.textContent = `当前处于营业时段内，欢迎随时到店（闭店前 30 分钟停止最后点单）。`;
+      } else {
+        heroBadge.className = 'glass-pill inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full text-xs font-semibold text-amberwarm-dark shadow-sm';
+        heroDot.className = 'w-2 h-2 rounded-full bg-amberwarm';
+        heroText.textContent = '休息中';
+        heroHours.textContent = `· 次日 ${store.open_time} 营业`;
+        bentoChip.className = 'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-amberwarm-light text-amberwarm-dark';
+        bentoChip.innerHTML = '<span class="w-1.5 h-1.5 rounded-full bg-amberwarm"></span>休息中';
+        bentoHint.textContent = `当前已打烊或尚未开店，预计 ${store.open_time} 恢复营业，可提前收藏路线。`;
+      }
+    }
+
+    // 切换交通出行方式并同步高亮 SVG 矢量路线
+    function switchRouteMode(mode) {
+      if (!currentStore) return;
+      activeRouteMode = mode;
+      const route = currentStore.routes_json[mode] || currentStore.routes_json.subway;
+
+      const metaMap = {
+        subway: { label: '地铁出行指引', color: '#1F4E3D', pillBg: 'bg-pine-light text-pine', dot: 'bg-pine' },
+        car: { label: '自驾停车指引', color: '#C67D43', pillBg: 'bg-amberwarm-light text-amberwarm-dark', dot: 'bg-amberwarm' },
+        bus: { label: '公交路线指引', color: '#356A87', pillBg: 'bg-sky-50 text-sky-800', dot: 'bg-sky-700' },
+        taxi: { label: '打车 / 骑行指引', color: '#8C5934', pillBg: 'bg-amberwarm-light text-amberwarm-dark', dot: 'bg-amberwarm-dark' },
+      };
+      const meta = metaMap[mode] || metaMap.subway;
+
+      // 更新分段控制器激活样式
+      document.querySelectorAll('.route-tab').forEach((btn) => {
+        const isActive = btn.dataset.mode === mode;
+        btn.className = isActive
+          ? 'route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple bg-pine text-white shadow-sm'
+          : 'route-tab flex items-center justify-center gap-1.5 px-3 sm:px-4 py-2 rounded-full text-xs sm:text-sm font-semibold transition-all duration-300 ease-apple text-charcoal-700 hover:text-charcoal-900';
+      });
+
+      // 高亮对应 SVG 流光路径
+      ['subway', 'car', 'bus', 'taxi'].forEach((k) => {
+        const g = document.getElementById(`svg-route-${k}`);
+        if (g) {
+          g.classList.toggle('opacity-100', k === mode);
+          g.classList.toggle('opacity-15', k !== mode);
+        }
+      });
+
+      // 更新地图左上角徽标
+      document.getElementById('mapModeDot').className = `w-2 h-2 rounded-full ${meta.dot}`;
+      document.getElementById('mapModeLabel').textContent = `${meta.label.replace('指引', '')} · ${route.duration}`;
+
+      // 更新右侧分步路线面板
+      const tagEl = document.getElementById('routePanelTag');
+      tagEl.className = `inline-block text-[11px] font-semibold px-2.5 py-0.5 rounded-full mb-1.5 ${meta.pillBg}`;
+      tagEl.textContent = meta.label;
+      document.getElementById('routePanelTitle').textContent = route.title;
+      document.getElementById('routePanelDuration').textContent = route.duration;
+      document.getElementById('routePanelLandmark').textContent = route.landmark;
+
+      const stepsList = document.getElementById('routeStepsList');
+      stepsList.innerHTML = (route.steps || []).map((step, idx) => `
+        <li class="pl-5 relative">
+          <span class="absolute -left-[11px] top-0.5 w-5 h-5 rounded-full bg-white border-2 border-pine text-pine text-[10px] font-bold flex items-center justify-center">${idx + 1}</span>
+          <p class="text-xs sm:text-[13px] text-charcoal-700 leading-relaxed">${escapeHtml(step)}</p>
+        </li>
+      `).join('');
+
+      // 同步聚焦地图对应坐标点的浮层气泡
+      focusMapPin(mode);
+    }
+
+    // 点击矢量地图地标点更新浮层认路气泡
+    function focusMapPin(pinKey) {
+      if (!currentStore) return;
+      const r = currentStore.routes_json;
+      const pinConfig = {
+        subway: {
+          badge: 'M',
+          badgeClass: 'bg-pine-light text-pine',
+          title: r.subway.title,
+          meta: r.subway.duration,
+          desc: r.subway.landmark,
+        },
+        car: {
+          badge: 'P',
+          badgeClass: 'bg-amberwarm-light text-amberwarm-dark',
+          title: r.car.title,
+          meta: r.car.duration,
+          desc: r.car.landmark,
+        },
+        bus: {
+          badge: '公',
+          badgeClass: 'bg-sky-50 text-sky-800',
+          title: r.bus.title,
+          meta: r.bus.duration,
+          desc: r.bus.landmark,
+        },
+        taxi: {
+          badge: '停',
+          badgeClass: 'bg-amberwarm-light text-amberwarm-dark',
+          title: r.taxi.title,
+          meta: r.taxi.duration,
+          desc: r.taxi.landmark,
+        },
+        landmark: {
+          badge: '标',
+          badgeClass: 'bg-red-50 text-red-700',
+          title: '转角红砖老建筑 · 核心参照点',
+          meta: '距店 120米',
+          desc: r.subway.landmark || '看到此红砖转角建筑即可拐入慢行精品巷，避免走过头。',
+        },
+        store: {
+          badge: '店',
+          badgeClass: 'bg-pine text-white',
+          title: currentStore.name,
+          meta: `${currentStore.open_time}-${currentStore.close_time}`,
+          desc: currentStore.address,
+        },
+      };
+      const cfg = pinConfig[pinKey] || pinConfig.store;
+      const badgeEl = document.getElementById('bubbleBadge');
+      badgeEl.className = `w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-bold text-sm ${cfg.badgeClass}`;
+      badgeEl.textContent = cfg.badge;
+      document.getElementById('bubbleTitle').textContent = cfg.title;
+      document.getElementById('bubbleMeta').textContent = cfg.meta;
+      document.getElementById('bubbleDesc').textContent = cfg.desc;
+    }
+
+    function renderFacilitiesCloud(facilities) {
+      const container = document.getElementById('facilitiesTagCloud');
+      if (!facilities || facilities.length === 0) {
+        container.innerHTML = '<span class="text-xs text-charcoal-400">暂未添加设施标签，可点击右上角“编辑标签”补充。</span>';
+        return;
+      }
+      container.innerHTML = facilities.map((tag) => `
+        <span class="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-2xl bg-oat-50 border border-oat-200 text-xs font-medium text-charcoal-700">
+          <svg class="w-3.5 h-3.5 text-pine shrink-0" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><polyline points="20 6 9 17 4 12"></polyline></svg>
+          ${escapeHtml(tag)}
+        </span>
+      `).join('');
+    }
+
+    function renderFaqAccordion(faqs) {
+      const container = document.getElementById('faqAccordionList');
+      if (!faqs || faqs.length === 0) {
+        container.innerHTML = '<div class="p-5 text-center text-xs text-charcoal-400">暂无常见问题，点击右上角“管理 FAQ”即可添加。</div>';
+        return;
+      }
+      container.innerHTML = faqs.map((item, idx) => `
+        <div class="faq-item" data-open="${idx === 0 ? 'true' : 'false'}">
+          <button type="button" onclick="toggleFaqItem(this)" class="w-full px-5 py-4 flex items-center justify-between gap-4 text-left hover:bg-white/70 transition-colors">
+            <span class="text-sm font-semibold text-charcoal-900">${escapeHtml(item.q)}</span>
+            <svg class="faq-arrow w-4 h-4 text-charcoal-400 shrink-0 transition-transform duration-300 ${idx === 0 ? 'rotate-180' : ''}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+          <div class="faq-grid">
+            <div class="faq-inner">
+              <p class="px-5 pb-4 text-xs sm:text-sm text-charcoal-500 leading-relaxed">${escapeHtml(item.a)}</p>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function toggleFaqItem(btn) {
+      const item = btn.closest('.faq-item');
+      const isOpen = item.getAttribute('data-open') === 'true';
+      item.setAttribute('data-open', isOpen ? 'false' : 'true');
+      const arrow = btn.querySelector('.faq-arrow');
+      if (arrow) arrow.classList.toggle('rotate-180', !isOpen);
+    }
+
+    // =========================================================================
+    // 8. 顶部多门店下拉切换器
+    // =========================================================================
+    function toggleStoreMenu() {
+      const menu = document.getElementById('storeDropdownMenu');
+      const chev = document.getElementById('switcherChevron');
+      const isHidden = menu.classList.toggle('hidden');
+      chev.style.transform = isHidden ? '' : 'rotate(180deg)';
+    }
+
+    function closeStoreMenu() {
+      document.getElementById('storeDropdownMenu').classList.add('hidden');
+      document.getElementById('switcherChevron').style.transform = '';
+    }
+
+    function renderStoreDropdown() {
+      const listEl = document.getElementById('storeDropdownList');
+      listEl.innerHTML = storesList.map((s) => {
+        const isSelected = currentStore && String(s.id) === String(currentStore.id);
+        return `
+          <button type="button" onclick="selectStoreById('${escapeAttr(s.id)}')" class="w-full px-3 py-2.5 rounded-xl text-left flex items-center justify-between gap-2 transition-colors ${isSelected ? 'bg-pine-light text-pine' : 'hover:bg-oat-100 text-charcoal-900'}">
+            <div class="min-w-0">
+              <span class="block text-xs sm:text-sm font-semibold truncate">${escapeHtml(s.name)}</span>
+              <span class="block text-[11px] ${isSelected ? 'text-pine/80' : 'text-charcoal-400'} truncate mt-0.5">${escapeHtml(s.category || s.address)}</span>
+            </div>
+            <span class="shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full ${s._origin === 'cloud' ? 'bg-emerald-100 text-emerald-800' : 'bg-oat-200 text-charcoal-600'}">
+              ${s._origin === 'cloud' ? '云端' : '本地'}
+            </span>
+          </button>
+        `;
+      }).join('');
+    }
+
+    function selectStoreById(id) {
+      const found = storesList.find((s) => String(s.id) === String(id));
+      if (!found) return;
+      currentStore = found;
+      // 同步更新浏览器 URL 参数便于直接复制分享
+      try {
+        const url = new URL(window.location.href);
+        url.searchParams.set('id', found.id);
+        window.history.replaceState({}, '', url.toString());
+      } catch (e) {}
+      renderCurrentStore();
+      renderStoreDropdown();
+      closeStoreMenu();
+      showToast(`已切换至「${found.name}」`, 'info');
+    }
+
+    // =========================================================================
+    // 9. 商家信息上传与编辑工作室（Studio Drawer）
+    // =========================================================================
+    function openStudioDrawer(mode = 'edit', initialTab = 'basic') {
+      studioMode = mode;
+      pendingUploadFiles = { cover: null, landmark: null };
+
+      if (mode === 'create') {
+        studioDraft = createBlankStoreDraft();
+      } else {
+        studioDraft = cloneDeep(currentStore || createBlankStoreDraft());
+      }
+
+      populateStudioFormFromDraft();
+      updateStudioHeaderUI();
+      switchStudioTab(initialTab);
+      switchEditRouteMode('subway');
+
+      const drawer = document.getElementById('studioDrawer');
+      drawer.classList.remove('hidden');
+      requestAnimationFrame(() => drawer.classList.add('drawer-open'));
+    }
+
+    function closeStudioDrawer() {
+      const drawer = document.getElementById('studioDrawer');
+      drawer.classList.remove('drawer-open');
+      setTimeout(() => drawer.classList.add('hidden'), 320);
+    }
+
+    function switchStudioMode(mode) {
+      studioMode = mode;
+      pendingUploadFiles = { cover: null, landmark: null };
+      if (mode === 'create') {
+        studioDraft = createBlankStoreDraft();
+        populateStudioFormFromDraft();
+        switchEditRouteMode('subway');
+      }
+      updateStudioHeaderUI();
+    }
+
+    function createBlankStoreDraft() {
+      return {
+        id: null,
+        _origin: isCloudConnected ? 'cloud' : 'local',
+        name: '',
+        category: '咖啡 · 轻食空间',
+        tagline: '',
+        address: '',
+        phone: '',
+        open_time: '09:30',
+        close_time: '21:30',
+        cover_image: '',
+        landmark_image: '',
+        landmark_caption: '沿街清晰可见门店招牌与主入口。',
+        routes_json: {
+          subway: {
+            title: '最近地铁站 · 出口',
+            duration: '步行 5 分钟',
+            mapLabel: '地铁站出口',
+            landmark: '出站后沿主干道直行至红砖转角左转',
+            steps: ['出站后沿主路直行约 200 米。', '见转角地标建筑左转入巷即达门店。'],
+          },
+          car: {
+            title: '周边地下停车场入口',
+            duration: '步行 3 分钟',
+            mapLabel: '地下车库入口',
+            landmark: '地面/地下车位充足，消费可询停车优惠',
+            steps: ['导航搜索周边地下车库驶入。', '乘电梯至 1 层步行约 100 米即达。'],
+          },
+          bus: {
+            title: '附近公交站点',
+            duration: '步行 4 分钟',
+            mapLabel: '附近公交站',
+            landmark: '下车后沿指示牌前行',
+            steps: ['公交下车后沿商业街直行 200 米即可抵达。'],
+          },
+          taxi: {
+            title: '推荐网约车临停下车点',
+            duration: '步行 1 分钟',
+            mapLabel: '推荐临停点',
+            landmark: '定位巷口下车免绕路',
+            steps: ['网约车直接定位巷口临停点，下车步行 60 米即到。'],
+          },
+        },
+        facilities_json: ['免费高速 Wi-Fi', '充足电源插座', '对外洗手间'],
+        faqs_json: [
+          { q: '到店需要提前预约吗？', a: '平时可直接到店，周末高峰建议提前致电咨询座位情况。' },
+        ],
+      };
+    }
+
+    function updateStudioHeaderUI() {
+      const badge = document.getElementById('studioModeBadge');
+      const title = document.getElementById('studioDrawerTitle');
+      const switchCreateBtn = document.getElementById('studioSwitchCreateBtn');
+      const deleteBtn = document.getElementById('btnDeleteStore');
+      const storageHint = document.getElementById('studioStorageHint');
+      const saveLabel = document.getElementById('btnSaveStoreLabel');
+
+      if (studioMode === 'create') {
+        badge.textContent = '新增商家入驻';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amberwarm-light text-amberwarm-dark';
+        title.textContent = '上传新商家信息与路线';
+        switchCreateBtn.classList.add('hidden');
+        deleteBtn.classList.add('hidden');
+      } else {
+        badge.textContent = '编辑当前门店';
+        badge.className = 'px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-pine-light text-pine';
+        title.textContent = '编辑门店资料与实景图';
+        switchCreateBtn.classList.remove('hidden');
+        deleteBtn.classList.remove('hidden');
+      }
+
+      if (isCloudConnected) {
+        storageHint.textContent = '实时写入 Supabase 云托管';
+        saveLabel.textContent = studioMode === 'create' ? '发布至 Supabase 云端' : '保存并同步云端';
+      } else {
+        storageHint.textContent = '本地演示模式（配置 Supabase 可云端托管）';
+        saveLabel.textContent = studioMode === 'create' ? '新增并本地保存' : '保存到本地';
+      }
+    }
+
+    function switchStudioTab(tabKey) {
+      document.querySelectorAll('.studio-tab-panel').forEach((p) => p.classList.add('hidden'));
+      const target = document.getElementById(`studioTab-${tabKey}`);
+      if (target) target.classList.remove('hidden');
+
+      document.querySelectorAll('.studio-tab-btn').forEach((btn) => {
+        const active = btn.dataset.studioTab === tabKey;
+        btn.className = active
+          ? 'studio-tab-btn py-2 rounded-xl text-xs font-semibold bg-white text-pine shadow-xs transition-all'
+          : 'studio-tab-btn py-2 rounded-xl text-xs font-semibold text-charcoal-500 hover:text-charcoal-900 transition-all';
+      });
+    }
+
+    function populateStudioFormFromDraft() {
+      const d = studioDraft;
+      document.getElementById('formName').value = d.name || '';
+      document.getElementById('formCategory').value = d.category || '';
+      document.getElementById('formPhone').value = d.phone || '';
+      document.getElementById('formTagline').value = d.tagline || '';
+      document.getElementById('formAddress').value = d.address || '';
+      document.getElementById('formOpenTime').value = d.open_time || '09:00';
+      document.getElementById('formCloseTime').value = d.close_time || '21:00';
+
+      document.getElementById('formCoverUrl').value = d.cover_image || '';
+      document.getElementById('formLandmarkUrl').value = d.landmark_image || '';
+      document.getElementById('formLandmarkCaption').value = d.landmark_caption || '';
+
+      setMediaPreviewUI('cover', d.cover_image || '');
+      setMediaPreviewUI('landmark', d.landmark_image || '');
+
+      renderStudioFacilityChips();
+      renderStudioFaqEditor();
+    }
+
+    // 图片拖拽与选择压缩预览
+    function handleDragOver(e) {
+      e.preventDefault();
+      e.currentTarget.classList.add('border-pine', 'bg-pine-light/40');
+    }
+
+    function handleDragLeave(e) {
+      e.currentTarget.classList.remove('border-pine', 'bg-pine-light/40');
+    }
+
+    function handleDropImage(e, kind) {
+      e.preventDefault();
+      e.currentTarget.classList.remove('border-pine', 'bg-pine-light/40');
+      const file = e.dataTransfer?.files?.[0];
+      if (file) processSelectedImage(file, kind);
+    }
+
+    function handleImageFileSelect(e, kind) {
+      const file = e.target.files?.[0];
+      if (file) processSelectedImage(file, kind);
+      e.target.value = '';
+    }
+
+    async function processSelectedImage(file, kind) {
+      if (!file.type.startsWith('image/')) {
+        showToast('请选择有效的图片文件（JPG / PNG / WebP）', 'warn');
+        return;
+      }
+      try {
+        const compressed = await compressImageFile(file, kind === 'cover' ? 1280 : 960, 0.8);
+        pendingUploadFiles[kind] = compressed;
+        setMediaPreviewUI(kind, compressed.dataUrl);
+        document.getElementById(kind === 'cover' ? 'formCoverUrl' : 'formLandmarkUrl').value = '';
+        showToast(`图片已自动优化压缩（${Math.round(compressed.blob.size / 1024)} KB），保存时将自动上传`, 'success');
+      } catch (err) {
+        console.error('图片处理失败:', err);
+        showToast('图片解析失败，请更换一张图片重试', 'error');
+      }
+    }
+
+    // 前端 Canvas 自动缩放与压缩，降低存储体积并加速云端上传
+    function compressImageFile(file, maxWidth = 1200, quality = 0.8) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onerror = reject;
+        reader.onload = () => {
+          const img = new Image();
+          img.onerror = reject;
+          img.onload = () => {
+            let { width, height } = img;
+            if (width > maxWidth) {
+              height = Math.round((height * maxWidth) / width);
+              width = maxWidth;
+            }
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+            const dataUrl = canvas.toDataURL('image/jpeg', quality);
+            canvas.toBlob(
+              (blob) => {
+                if (!blob) return reject(new Error('Canvas 压缩失败'));
+                resolve({ blob, dataUrl });
+              },
+              'image/jpeg',
+              quality
+            );
+          };
+          img.src = reader.result;
+        };
+        reader.readAsDataURL(file);
+      });
+    }
+
+    function setMediaPreviewUI(kind, src) {
+      const imgEl = document.getElementById(kind === 'cover' ? 'previewCoverImg' : 'previewLandmarkImg');
+      const phEl = document.getElementById(kind === 'cover' ? 'placeholderCover' : 'placeholderLandmark');
+      if (src && src.trim()) {
+        imgEl.src = src;
+        imgEl.classList.remove('hidden');
+        phEl.classList.add('hidden');
+      } else {
+        imgEl.removeAttribute('src');
+        imgEl.classList.add('hidden');
+        phEl.classList.remove('hidden');
+      }
+    }
+
+    function syncMediaPreviewFromUrl(kind) {
+      const val = document.getElementById(kind === 'cover' ? 'formCoverUrl' : 'formLandmarkUrl').value.trim();
+      pendingUploadFiles[kind] = null;
+      setMediaPreviewUI(kind, val);
+    }
+
+    function clearMediaImage(kind) {
+      pendingUploadFiles[kind] = null;
+      document.getElementById(kind === 'cover' ? 'formCoverUrl' : 'formLandmarkUrl').value = '';
+      if (studioDraft) {
+        studioDraft[kind === 'cover' ? 'cover_image' : 'landmark_image'] = '';
+      }
+      setMediaPreviewUI(kind, '');
+    }
+
+    // 优先上传至 Supabase Storage Bucket，若桶不存在/无权限则优雅降级为压缩后的 Base64
+    async function resolveMediaUrlForSave(kind) {
+      const urlInput = document.getElementById(kind === 'cover' ? 'formCoverUrl' : 'formLandmarkUrl').value.trim();
+      const pending = pendingUploadFiles[kind];
+      if (!pending) {
+        return urlInput || (studioDraft[kind === 'cover' ? 'cover_image' : 'landmark_image'] || '');
+      }
+
+      if (isCloudConnected && supabaseClient) {
+        try {
+          const bucket = supabaseConfig.bucket || 'store-images';
+          const filePath = `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+          const { error: uploadErr } = await supabaseClient.storage
+            .from(bucket)
+            .upload(filePath, pending.blob, { contentType: 'image/jpeg', upsert: true });
+
+          if (!uploadErr) {
+            const { data: pubData } = supabaseClient.storage.from(bucket).getPublicUrl(filePath);
+            if (pubData?.publicUrl) {
+              return pubData.publicUrl;
+            }
+          } else {
+            console.warn('Supabase Storage 上传降级为 Base64:', uploadErr.message);
+          }
+        } catch (err) {
+          console.warn('Storage 上传异常，自动降级为压缩 Base64:', err);
+        }
+      }
+      return pending.dataUrl;
+    }
+
+    // 路线表单编辑切换
+    function switchEditRouteMode(mode) {
+      studioEditRouteMode = mode;
+      document.querySelectorAll('.edit-route-btn').forEach((btn) => {
+        const active = btn.dataset.editRoute === mode;
+        btn.className = active
+          ? 'edit-route-btn py-2 rounded-xl text-xs font-semibold bg-pine text-white'
+          : 'edit-route-btn py-2 rounded-xl text-xs font-semibold text-charcoal-600 hover:bg-oat-100';
+      });
+      const r = studioDraft.routes_json[mode];
+      document.getElementById('routeEditTitle').value = r.title || '';
+      document.getElementById('routeEditDuration').value = r.duration || '';
+      document.getElementById('routeEditMapLabel').value = r.mapLabel || '';
+      document.getElementById('routeEditLandmark').value = r.landmark || '';
+      document.getElementById('routeEditSteps').value = (r.steps || []).join('\n');
+    }
+
+    function syncCurrentEditRoute() {
+      if (!studioDraft) return;
+      const r = studioDraft.routes_json[studioEditRouteMode];
+      r.title = document.getElementById('routeEditTitle').value.trim();
+      r.duration = document.getElementById('routeEditDuration').value.trim();
+      r.mapLabel = document.getElementById('routeEditMapLabel').value.trim();
+      r.landmark = document.getElementById('routeEditLandmark').value.trim();
+      r.steps = document.getElementById('routeEditSteps').value
+        .split('\n')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    // 设施标签多选编辑
+    function renderStudioFacilityChips() {
+      const selected = new Set(studioDraft.facilities_json || []);
+      const allTags = Array.from(new Set([...PRESET_FACILITIES, ...selected]));
+      const container = document.getElementById('studioFacilityChips');
+      container.innerHTML = allTags.map((tag) => {
+        const active = selected.has(tag);
+        return `
+          <button type="button" onclick="toggleFacilityDraft('${escapeAttr(tag)}')" class="px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${active ? 'bg-pine text-white border-pine' : 'bg-oat-50 text-charcoal-700 border-oat-300 hover:border-pine'}">
+            ${active ? '✓ ' : '+ '}${escapeHtml(tag)}
+          </button>
+        `;
+      }).join('');
+    }
+
+    function toggleFacilityDraft(tag) {
+      const list = studioDraft.facilities_json || [];
+      const idx = list.indexOf(tag);
+      if (idx >= 0) list.splice(idx, 1);
+      else list.push(tag);
+      studioDraft.facilities_json = list;
+      renderStudioFacilityChips();
+    }
+
+    function addCustomFacility() {
+      const input = document.getElementById('customFacilityInput');
+      const val = input.value.trim();
+      if (!val) return;
+      if (!studioDraft.facilities_json.includes(val)) {
+        studioDraft.facilities_json.push(val);
+      }
+      input.value = '';
+      renderStudioFacilityChips();
+    }
+
+    // FAQ 动态增删编辑
+    function renderStudioFaqEditor() {
+      const container = document.getElementById('studioFaqList');
+      const faqs = studioDraft.faqs_json || [];
+      if (faqs.length === 0) {
+        container.innerHTML = '<p class="text-xs text-charcoal-400 text-center py-3">暂无问答，点击上方按钮添加</p>';
+        return;
+      }
+      container.innerHTML = faqs.map((item, idx) => `
+        <div class="p-3 rounded-xl bg-oat-50 border border-oat-200 space-y-2">
+          <div class="flex items-center justify-between gap-2">
+            <span class="text-[11px] font-bold text-charcoal-400">问题 #${idx + 1}</span>
+            <button type="button" onclick="removeFaqDraftRow(${idx})" class="text-[11px] text-red-500 hover:text-red-700">移除</button>
+          </div>
+          <input type="text" value="${escapeAttr(item.q)}" oninput="updateFaqDraft(${idx}, 'q', this.value)" placeholder="输入顾客常问的问题" class="w-full px-3 py-2 rounded-lg bg-white border border-oat-200 text-xs outline-none focus:border-pine">
+          <textarea rows="2" oninput="updateFaqDraft(${idx}, 'a', this.value)" placeholder="输入贴心解答" class="w-full px-3 py-2 rounded-lg bg-white border border-oat-200 text-xs outline-none focus:border-pine resize-none">${escapeHtml(item.a)}</textarea>
+        </div>
+      `).join('');
+    }
+
+    function addFaqDraftRow() {
+      studioDraft.faqs_json.push({ q: '', a: '' });
+      renderStudioFaqEditor();
+    }
+
+    function removeFaqDraftRow(idx) {
+      studioDraft.faqs_json.splice(idx, 1);
+      renderStudioFaqEditor();
+    }
+
+    function updateFaqDraft(idx, field, value) {
+      if (studioDraft.faqs_json[idx]) {
+        studioDraft.faqs_json[idx][field] = value;
+      }
+    }
+
+    // 提交保存商家信息（自动判断写入 Supabase 云端或本地存储）
+    async function saveStoreFromStudio() {
+      syncCurrentEditRoute();
+
+      const name = document.getElementById('formName').value.trim();
+      const address = document.getElementById('formAddress').value.trim();
+      if (!name || !address) {
+        switchStudioTab('basic');
+        showToast('请至少填写“门店名称”和“门店详细地址”', 'warn');
+        return;
+      }
+
+      const saveBtn = document.getElementById('btnSaveStore');
+      const spinner = document.getElementById('btnSaveStoreSpinner');
+      saveBtn.disabled = true;
+      spinner.classList.remove('hidden');
+
+      try {
+        const coverUrl = await resolveMediaUrlForSave('cover');
+        const landmarkUrl = await resolveMediaUrlForSave('landmark');
+
+        const cleanedFaqs = (studioDraft.faqs_json || []).filter((f) => f.q.trim() || f.a.trim());
+
+        const assembled = normalizeStoreRecord({
+          ...studioDraft,
+          name,
+          category: document.getElementById('formCategory').value.trim() || '生活方式空间',
+          phone: document.getElementById('formPhone').value.trim(),
+          tagline: document.getElementById('formTagline').value.trim(),
+          address,
+          open_time: document.getElementById('formOpenTime').value || '09:00',
+          close_time: document.getElementById('formCloseTime').value || '21:00',
+          cover_image: coverUrl,
+          landmark_image: landmarkUrl,
+          landmark_caption: document.getElementById('formLandmarkCaption').value.trim(),
+          faqs_json: cleanedFaqs,
+        }, isCloudConnected ? 'cloud' : 'local');
+
+        if (isCloudConnected && supabaseClient) {
+          const payload = buildCloudPayload(assembled);
+          let savedRow = null;
+          if (studioMode === 'create' || assembled._origin === 'local' || !studioDraft.id || String(studioDraft.id).startsWith('demo-') || String(studioDraft.id).startsWith('local-')) {
+            const { data, error } = await supabaseClient.from('stores').insert([payload]).select().single();
+            if (error) throw error;
+            savedRow = data;
+          } else {
+            const { data, error } = await supabaseClient.from('stores').update(payload).eq('id', studioDraft.id).select().single();
+            if (error) throw error;
+            savedRow = data;
+          }
+          await initSupabaseAndFetchStores(false, savedRow.id);
+          closeStudioDrawer();
+          showToast('商家信息已成功保存并同步至 Supabase 云端！', 'success', {
+            actionLabel: '复制分享链接',
+            onAction: () => openShareModal(),
+          });
+        } else {
+          // 本地演示模式持久化
+          let localList = getLocalStores();
+          if (studioMode === 'create') {
+            assembled.id = 'local-' + Date.now();
+            localList.unshift(assembled);
+          } else {
+            const idx = localList.findIndex((s) => String(s.id) === String(studioDraft.id));
+            if (idx >= 0) localList[idx] = assembled;
+            else localList.unshift(assembled);
+          }
+          persistLocalStores(localList);
+          loadLocalStoresAndRender(assembled.id);
+          closeStudioDrawer();
+          showToast('门店信息已保存至本地浏览器（配置 Supabase 可云端托管）', 'success');
+        }
+      } catch (err) {
+        console.error('保存商家信息失败:', err);
+        showToast('保存失败：' + (err.message || '请检查网络连接或 Supabase 权限'), 'error');
+      } finally {
+        saveBtn.disabled = false;
+        spinner.classList.add('hidden');
+      }
+    }
+
+    // 删除门店（使用自定义二次确认弹窗）
+    function requestDeleteCurrentStore() {
+      if (!currentStore) return;
+      document.getElementById('confirmTitle').textContent = `确认删除「${currentStore.name}」？`;
+      document.getElementById('confirmMessage').textContent = currentStore._origin === 'cloud'
+        ? '该操作会从 Supabase 云端数据库永久删除此门店记录，删除后无法撤销。'
+        : '该操作会从当前浏览器本地移除此门店记录。';
+
+      const okBtn = document.getElementById('confirmOkBtn');
+      okBtn.onclick = async () => {
+        closeModal('confirmModal');
+        await executeDeleteCurrentStore();
+      };
+      openModal('confirmModal');
+    }
+
+    async function executeDeleteCurrentStore() {
+      if (!currentStore) return;
+      try {
+        if (isCloudConnected && supabaseClient && currentStore._origin === 'cloud') {
+          const { error } = await supabaseClient.from('stores').delete().eq('id', currentStore.id);
+          if (error) throw error;
+          closeStudioDrawer();
+          showToast('云端门店记录已删除', 'info');
+          await initSupabaseAndFetchStores(false);
+        } else {
+          let localList = getLocalStores().filter((s) => String(s.id) !== String(currentStore.id));
+          if (localList.length === 0) {
+            localList = DEMO_STORES.map((s) => normalizeStoreRecord(cloneDeep(s), 'local'));
+            showToast('已恢复默认演示门店', 'info');
+          } else {
+            showToast('门店已从本地列表删除', 'info');
+          }
+          persistLocalStores(localList);
+          closeStudioDrawer();
+          loadLocalStoresAndRender();
+        }
+      } catch (err) {
+        showToast('删除失败：' + (err.message || '请稍后重试'), 'error');
+      }
+    }
+
+    // =========================================================================
+    // 10. 外部导航、分享二维码、Lightbox 与剪贴板工具
+    // =========================================================================
+    function openNavModal() {
+      if (!currentStore) return;
+      const query = encodeURIComponent(`${currentStore.name} ${currentStore.address}`);
+      const addrOnly = encodeURIComponent(currentStore.address);
+
+      document.getElementById('navModalAddress').textContent = currentStore.address;
+      document.getElementById('navAmapLink').href = `https://uri.amap.com/search?keyword=${query}`;
+      document.getElementById('navBaiduLink').href = `https://api.map.baidu.com/geocoder?address=${addrOnly}&output=html&src=webapp.store.guide`;
+      document.getElementById('navAppleLink').href = `https://maps.apple.com/?q=${query}`;
+      document.getElementById('navGoogleLink').href = `https://www.google.com/maps/search/?api=1&query=${query}`;
+      openModal('navModal');
+    }
+
+    function openShareModal() {
+      if (!currentStore) return;
+      document.getElementById('shareStoreTitle').textContent = currentStore.name;
+      const url = new URL(window.location.href);
+      url.searchParams.set('id', currentStore.id);
+      const shareUrl = url.toString();
+      document.getElementById('shareUrlInput').value = shareUrl;
+      document.getElementById('shareHintText').textContent = currentStore._origin === 'cloud'
+        ? '该门店已托管在 Supabase 云端，扫码即可直接访问'
+        : '当前为本地模式，配置 Supabase 云托管后可跨设备分享访问';
+
+      const qrBox = document.getElementById('qrCodeBox');
+      qrBox.innerHTML = '';
+      try {
+        if (typeof QRCode === 'function') {
+          new QRCode(qrBox, {
+            text: shareUrl,
+            width: 156,
+            height: 156,
+            colorDark: '#1F1D1B',
+            colorLight: '#FFFFFF',
+            correctLevel: QRCode.CorrectLevel.M,
+          });
+        } else {
+          qrBox.innerHTML = '<div class="text-xs text-charcoal-400 px-3">二维码组件加载中，可直接点击下方复制链接</div>';
+        }
+      } catch (err) {
+        qrBox.innerHTML = '<div class="text-xs text-charcoal-400 px-3">请使用下方直达链接进行分享</div>';
+      }
+      openModal('shareModal');
+    }
+
+    function openLightbox(src, caption = '') {
+      if (!src) return;
+      document.getElementById('lightboxImg').src = src;
+      document.getElementById('lightboxCaption').textContent = caption;
+      openModal('lightboxModal');
+    }
+
+    function openModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.remove('hidden');
+    }
+
+    function closeModal(id) {
+      const el = document.getElementById(id);
+      if (el) el.classList.add('hidden');
+    }
+
+    function copyCurrentAddress() {
+      if (!currentStore) return;
+      copyText(currentStore.address, '门店详细地址已复制');
+    }
+
+    function notifyCalling() {
+      if (!currentStore || !currentStore.phone) {
+        showToast('该门店暂未填写联系电话', 'warn');
+        return;
+      }
+      showToast(`正在呼叫门店：${currentStore.phone}`, 'info');
+    }
+
+    // 兼容 iframe 沙箱的剪贴板复制函数（优先使用 execCommand）
+    function copyText(text, successMsg = '已复制到剪贴板') {
+      if (!text) {
+        showToast('没有可复制的内容', 'warn');
+        return;
+      }
+      try {
+        const textarea = document.createElement('textarea');
+        textarea.value = text;
+        textarea.setAttribute('readonly', '');
+        textarea.style.position = 'fixed';
+        textarea.style.top = '-9999px';
+        document.body.appendChild(textarea);
+        textarea.select();
+        const ok = document.execCommand('copy');
+        document.body.removeChild(textarea);
+        if (ok) {
+          showToast(successMsg, 'success');
+          return;
+        }
+      } catch (err) {
+        console.warn('execCommand 复制降级:', err);
+      }
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text)
+          .then(() => showToast(successMsg, 'success'))
+          .catch(() => showToast('复制失败，请手动选中复制', 'warn'));
+      } else {
+        showToast('复制失败，请手动选中复制', 'warn');
+      }
+    }
+
+    function escapeHtml(str) {
+      return String(str ?? '')
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+    }
+
+    function escapeAttr(str) {
+      return escapeHtml(str).replace(/`/g, '&#96;');
+    }
+
+    // 优雅的全局 Toast 轻提示
+    function showToast(message, type = 'info', action = null) {
+      const container = document.getElementById('toastContainer');
+      if (!container) return;
+
+      const styles = {
+        success: 'bg-pine text-white',
+        error: 'bg-red-600 text-white',
+        warn: 'bg-amberwarm-dark text-white',
+        info: 'bg-charcoal-900 text-oat-50',
+      };
+
+      const toast = document.createElement('div');
+      toast.className = `pointer-events-auto flex items-center gap-3 px-4 py-2.5 rounded-full shadow-glass text-xs sm:text-sm font-medium transition-all duration-300 translate-y-2 opacity-0 ${styles[type] || styles.info}`;
+      toast.innerHTML = `<span>${escapeHtml(message)}</span>`;
+
+      if (action && action.actionLabel && typeof action.onAction === 'function') {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'px-2.5 py-0.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-semibold shrink-0';
+        btn.textContent = action.actionLabel;
+        btn.onclick = () => {
+          action.onAction();
+          toast.remove();
+        };
+        toast.appendChild(btn);
+      }
+
+      container.appendChild(toast);
+      requestAnimationFrame(() => {
+        toast.classList.remove('translate-y-2', 'opacity-0');
+      });
+
+      setTimeout(() => {
+        toast.classList.add('translate-y-2', 'opacity-0');
+        setTimeout(() => toast.remove(), 300);
+      }, action ? 4500 : 2800);
+    }
+  </script>
+</body>
+</html>
